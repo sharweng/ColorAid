@@ -8,6 +8,7 @@ import { Colors, Typography, Spacing, Radius, Shadow } from '../../src/constants
 import { useAuthStore } from '../../src/store/authStore';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
+import { achEmoji } from '../../src/components/AchievementToast';
 
 const SW = Dimensions.get('window').width;
 
@@ -373,16 +374,24 @@ export default function ProgressScreen() {
             </View>
           </View>
           <View style={styles.achGrid}>
-            {achievements.achievements.slice(0, 6).map((a) => (
-              <View key={a.id} style={[styles.achItem, !a.unlocked && styles.achLocked]}>
-                <Text style={[styles.achEmoji, !a.unlocked && styles.achEmojiLocked]}>
-                  {achievementEmoji(a.key)}
-                </Text>
-                <Text style={[styles.achTitle, !a.unlocked && styles.achTitleLocked]} numberOfLines={2}>
-                  {a.unlocked ? a.title : '???'}
-                </Text>
-              </View>
-            ))}
+            {achievements.achievements.slice(0, 6).map((a) => {
+              const pct = a.progress ? Math.min(100, Math.round((a.progress.current / a.progress.target) * 100)) : 0;
+              return (
+                <View key={a.id} style={[styles.achItem, !a.unlocked && styles.achLocked]}>
+                  <Text style={[styles.achEmoji, !a.unlocked && styles.achEmojiLocked]}>
+                    {achEmoji(a.key)}
+                  </Text>
+                  <Text style={[styles.achTitle, !a.unlocked && styles.achTitleLocked]} numberOfLines={2}>
+                    {a.unlocked ? a.title : '???'}
+                  </Text>
+                  {!a.unlocked && a.progress && (
+                    <View style={styles.achGridProgress}>
+                      <View style={[styles.achGridProgressFill, { width: `${pct}%` as any }]} />
+                    </View>
+                  )}
+                </View>
+              );
+            })}
           </View>
         </View>
       )}
@@ -736,27 +745,38 @@ export default function ProgressScreen() {
             keyExtractor={(a) => a.id}
             contentContainerStyle={styles.modalList}
             ItemSeparatorComponent={() => <View style={styles.separator} />}
-            renderItem={({ item: a }) => (
-              <View style={[styles.achListRow, !a.unlocked && styles.achListRowLocked]}>
-                <View style={styles.achListIcon}>
-                  <Text style={[styles.achListEmoji, !a.unlocked && styles.achEmojiLocked]}>
-                    {achievementEmoji(a.key)}
-                  </Text>
+            renderItem={({ item: a }) => {
+              const pct = a.progress ? Math.min(100, Math.round((a.progress.current / a.progress.target) * 100)) : 0;
+              return (
+                <View style={[styles.achListRow, !a.unlocked && styles.achListRowLocked]}>
+                  <View style={styles.achListIcon}>
+                    <Text style={[styles.achListEmoji, !a.unlocked && styles.achEmojiLocked]}>
+                      {achEmoji(a.key)}
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.achListTitle, !a.unlocked && styles.achListTitleLocked]}>{a.title}</Text>
+                    <Text style={styles.achListDesc}>{a.description}</Text>
+                    {a.unlocked && a.unlockedAt && (
+                      <Text style={styles.achListDate}>Unlocked {new Date(a.unlockedAt).toLocaleDateString()}</Text>
+                    )}
+                    {!a.unlocked && a.progress && (
+                      <View style={styles.achListProgressContainer}>
+                        <View style={styles.achListProgressBar}>
+                          <View style={[styles.achListProgressFill, { width: `${pct}%` as any }]} />
+                        </View>
+                        <Text style={styles.achListProgressText}>{a.progress.current} / {a.progress.target}</Text>
+                      </View>
+                    )}
+                    {!a.unlocked && !a.progress && <Text style={styles.achListLocked}>🔒 Locked</Text>}
+                  </View>
+                  <View style={styles.achRewards}>
+                    <Text style={styles.achRewardXp}>+{a.xpReward} XP</Text>
+                    <Text style={styles.achRewardCoin}>🪙 {a.coinReward}</Text>
+                  </View>
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.achListTitle, !a.unlocked && styles.achListTitleLocked]}>{a.title}</Text>
-                  <Text style={styles.achListDesc}>{achDescription(a.key, a.description)}</Text>
-                  {a.unlocked && a.unlockedAt && (
-                    <Text style={styles.achListDate}>Unlocked {new Date(a.unlockedAt).toLocaleDateString()}</Text>
-                  )}
-                  {!a.unlocked && <Text style={styles.achListLocked}>🔒 Locked</Text>}
-                </View>
-                <View style={styles.achRewards}>
-                  <Text style={styles.achRewardXp}>+{a.xpReward} XP</Text>
-                  <Text style={styles.achRewardCoin}>🪙 {a.coinReward}</Text>
-                </View>
-              </View>
-            )}
+              );
+            }}
           />
         </SafeAreaView>
       </Modal>
@@ -769,34 +789,6 @@ export default function ProgressScreen() {
 function formatCvdType(cvdType: string | null | undefined): string {
   if (!cvdType) return 'Unknown';
   return cvdType.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
-}
-
-function achievementEmoji(key: string): string {
-  const map: Record<string, string> = {
-    first_assessment: '👁️', assessment_veteran: '🔬', first_game: '🎮',
-    training_enthusiast: '🏃', training_master: '🏆', week_streak: '🔥',
-    level_5: '⭐', level_10: '👑', color_match_dedicated: '🎨',
-    hue_hunt_dedicated: '🔍', shade_spectrum_dedicated: '🌈', color_sort_dedicated: '🗂️',
-  };
-  return map[key] ?? '🏅';
-}
-
-function achDescription(key: string, fallback: string): string {
-  const map: Record<string, string> = {
-    first_assessment: 'Take your very first color vision assessment to earn this.',
-    assessment_veteran: 'Complete 5 color vision assessments to prove your dedication.',
-    first_game: 'Finish any training game for the first time.',
-    training_enthusiast: 'Complete 10 training sessions total across any game type.',
-    training_master: "Complete 50 training sessions — you're a true color master!",
-    week_streak: 'Train every day for 7 consecutive days without missing a day.',
-    level_5: 'Earn enough XP to reach Level 5 on your ColorAid journey.',
-    level_10: 'Reach Level 10 — the mark of a dedicated Color Champion.',
-    color_match_dedicated: 'Play Color Match at least 5 times to sharpen exact-match skills.',
-    hue_hunt_dedicated: 'Play Hue Hunt at least 5 times to master finding the odd hue.',
-    shade_spectrum_dedicated: 'Play Shade Spectrum at least 5 times to master light-to-dark ordering.',
-    color_sort_dedicated: 'Play Color Sort at least 5 times to become a category expert.',
-  };
-  return map[key] ?? fallback;
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
@@ -845,6 +837,8 @@ const styles = StyleSheet.create({
   achEmojiLocked: { opacity: 0.4 },
   achTitle: { fontSize: 9, fontWeight: '600', color: Colors.primary, textAlign: 'center' },
   achTitleLocked: { color: Colors.textMuted },
+  achGridProgress: { width: '80%', height: 4, backgroundColor: Colors.border, borderRadius: 2, marginTop: 6, overflow: 'hidden' },
+  achGridProgressFill: { height: '100%', backgroundColor: Colors.primary, borderRadius: 2 },
 
   // Modal shared
   modalContainer: { flex: 1, backgroundColor: Colors.background },
@@ -892,6 +886,10 @@ const styles = StyleSheet.create({
   achListDesc: { color: Colors.textSecondary, fontSize: Typography.size.xs, lineHeight: 16, marginBottom: 4 },
   achListDate: { color: Colors.accent, fontSize: Typography.size.xs, fontWeight: '600' },
   achListLocked: { color: Colors.textMuted, fontSize: Typography.size.xs, fontWeight: '600' },
+  achListProgressContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 8 },
+  achListProgressBar: { flex: 1, height: 6, backgroundColor: Colors.border, borderRadius: 3, overflow: 'hidden' },
+  achListProgressFill: { height: '100%', backgroundColor: Colors.primary, borderRadius: 3 },
+  achListProgressText: { color: Colors.textMuted, fontSize: 10, fontWeight: '700', width: 36, textAlign: 'right' },
   achRewards: { alignItems: 'flex-end', gap: 2 },
   achRewardXp: { color: Colors.primary, fontSize: Typography.size.xs, fontWeight: '700' },
   achRewardCoin: { color: Colors.coin, fontSize: Typography.size.xs, fontWeight: '700' },

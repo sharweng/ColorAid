@@ -163,6 +163,7 @@ export interface AssessmentSubmitResponse {
   result: AssessmentResult;
   xpEarned: number;
   coinsEarned: number;
+  newAchievements?: Achievement[];
 }
 
 export const assessmentApi = {
@@ -207,6 +208,7 @@ export interface SessionCompleteResponse {
   nextDifficulty: number;
   leveledUp: boolean;
   newLevel: number;
+  newAchievements?: Achievement[];
 }
 
 export interface RecommendedGame {
@@ -266,6 +268,7 @@ export interface Achievement {
   category: string;
   unlocked: boolean;
   unlockedAt: string | null;
+  progress?: { current: number; target: number };
 }
 
 export const achievementsApi = {

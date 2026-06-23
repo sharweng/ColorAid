@@ -13,6 +13,7 @@ import { useRouter } from 'expo-router';
 import { assessmentApi, type PlateResponse, type AssessmentResult } from '../src/services/api';
 import { Colors, Typography, Spacing, Radius, Shadow, CvdTypeColors, SeverityColors } from '../src/constants/theme';
 import IshiharaPlate from '../src/components/IshiharaPlate';
+import { showAchievementToasts } from '../src/components/AchievementToast';
 
 // ─── Test Plates ──────────────────────────────────────────────────────────────
 // Each plate uses procedurally generated Ishihara-style colored dot patterns.
@@ -111,6 +112,10 @@ export default function AssessmentScreen() {
     setPhase('loading');
     try {
       const data = await assessmentApi.submitAssessment(assessmentId, finalResponses);
+      // Show achievement toasts if any were unlocked
+      if (data.newAchievements && data.newAchievements.length > 0) {
+        showAchievementToasts(data.newAchievements);
+      }
       setResult(data.result);
       setRewards({ xpEarned: data.xpEarned, coinsEarned: data.coinsEarned });
       setPhase('result');

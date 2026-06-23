@@ -14,6 +14,7 @@ import { trainingApi, type GameType, type RoundResult } from '../../src/services
 import { Colors, Typography, Spacing, Radius, Shadow } from '../../src/constants/theme';
 import { hsvToRgb } from '../../src/utils/colorUtils';
 import { useAuthStore } from '../../src/store/authStore';
+import { showAchievementToasts } from '../../src/components/AchievementToast';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -358,7 +359,11 @@ export default function TrainingGameScreen() {
     setPhase('complete');
     if (sessionId) {
       try {
-        await trainingApi.completeSession(sessionId, finalRounds);
+        const result = await trainingApi.completeSession(sessionId, finalRounds);
+        // Show achievement toasts if any were unlocked
+        if (result.newAchievements && result.newAchievements.length > 0) {
+          showAchievementToasts(result.newAchievements);
+        }
         // Refresh user so streakDays updates immediately in the UI
         await refreshUser();
       } catch { /* non-critical */ }
