@@ -261,8 +261,6 @@ export default function ProgressScreen() {
       contentContainerStyle={styles.content}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}
     >
-      <Text style={styles.pageTitle}>Progress</Text>
-
       {/* Weekly Summary */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>This Week</Text>
@@ -825,7 +823,7 @@ const styles = StyleSheet.create({
   barFill: { width: '100%', borderRadius: Radius.sm },
   barLabel: { fontSize: 9, color: Colors.textMuted, marginTop: 2 },
   chartNote: { fontSize: Typography.size.xs, color: Colors.textMuted, marginTop: Spacing.sm, textAlign: 'center' },
-  gameStatsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
+  gameStatsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: Spacing.sm },
   gameStatBox: { width: '47%', backgroundColor: Colors.surfaceAlt, borderRadius: Radius.md, padding: Spacing.sm, borderTopWidth: 3, alignItems: 'center', justifyContent: 'center' },
   gameStatEmoji: { fontSize: 22, marginBottom: 2 },
   gameStatAvg: { fontSize: Typography.size.lg, fontWeight: '800' },
@@ -840,8 +838,8 @@ const styles = StyleSheet.create({
   assessPct: { color: Colors.textMuted, fontSize: Typography.size.xs },
   moreBtn: { marginTop: Spacing.sm, padding: Spacing.sm, alignItems: 'center' },
   moreBtnText: { color: Colors.primary, fontWeight: '600', fontSize: Typography.size.sm },
-  achGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
-  achItem: { width: '30%', backgroundColor: Colors.primaryBg, borderRadius: Radius.md, padding: Spacing.sm, alignItems: 'center' },
+  achGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: Spacing.sm },
+  achItem: { width: '31%', backgroundColor: Colors.primaryBg, borderRadius: Radius.md, padding: Spacing.sm, alignItems: 'center' },
   achLocked: { backgroundColor: Colors.surfaceAlt, opacity: 0.6 },
   achEmoji: { fontSize: 24, marginBottom: 4 },
   achEmojiLocked: { opacity: 0.4 },

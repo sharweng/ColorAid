@@ -233,7 +233,7 @@ const styles = StyleSheet.create({
   assessmentSub: { fontSize: Typography.size.xs, color: Colors.textSecondary, marginTop: 2 },
   assessmentArrow: { fontSize: 20, color: Colors.primary, fontWeight: '700' },
   sectionTitle: { fontSize: Typography.size.lg, fontWeight: '800', color: Colors.textPrimary, marginBottom: Spacing.md },
-  gamesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
+  gamesGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: Spacing.sm },
   gameCard: {
     width: '48%',
     backgroundColor: Colors.surface,
