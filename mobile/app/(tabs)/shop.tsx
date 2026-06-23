@@ -58,14 +58,10 @@ export default function ShopScreen() {
           style: 'default',
           onPress: async () => {
             try {
-              const res = await shopApi.purchaseItem(item.id);
-              if (res.success) {
-                Alert.alert('Success', `${item.name} purchased!`);
-                await loadData();
-                await refreshUser(); // Update global coin state
-              } else {
-                Alert.alert('Error', res.message || 'Purchase failed');
-              }
+              await shopApi.purchaseItem(item.id);
+              Alert.alert('Success', `${item.name} purchased!`);
+              await loadData();
+              await refreshUser(); // Update global coin state
             } catch (err: any) {
               Alert.alert('Error', err.message || 'Something went wrong');
             }

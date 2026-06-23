@@ -312,7 +312,7 @@ export const shopApi = {
   getShopData: () =>
     apiFetch<{ coins: number; items: ShopItem[]; inventory: UserItem[] }>('/shop'),
   purchaseItem: (itemId: string) =>
-    apiFetch<{ success: boolean; message: string }>(`/shop/purchase/${itemId}`, { method: 'POST' }),
+    apiFetch<void>(`/shop/purchase/${itemId}`, { method: 'POST' }),
 };
 
 export interface SampledColor {
