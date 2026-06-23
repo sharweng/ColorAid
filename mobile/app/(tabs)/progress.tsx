@@ -412,8 +412,9 @@ export default function ProgressScreen() {
             ))}
           </View>
 
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScrollRow}
-            contentContainerStyle={{ gap: Spacing.xs, paddingHorizontal: Spacing.base }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}
+            style={styles.filterScrollRow}
+            contentContainerStyle={{ gap: Spacing.xs, paddingHorizontal: Spacing.base, alignItems: 'center' }}>
             {(['all', 'color_match', 'hue_hunt', 'shade_spectrum', 'color_sort'] as GameFilter[]).map(g => (
               <TouchableOpacity key={g}
                 style={[styles.filterBtn, sessionGameFilter === g && { ...styles.filterBtnOn, backgroundColor: GAME_COLORS[g], borderColor: GAME_COLORS[g] }]}
@@ -428,6 +429,7 @@ export default function ProgressScreen() {
           <Text style={styles.filterResultCount}>{filteredSessions.length} sessions</Text>
 
           <FlatList
+            style={{ flex: 1 }}
             data={sortedSessions}
             keyExtractor={(_, i) => String(i)}
             contentContainerStyle={styles.modalList}
@@ -467,7 +469,7 @@ export default function ProgressScreen() {
 
           {/* Chart tab selector */}
           <ScrollView horizontal showsHorizontalScrollIndicator={false}
-            style={styles.filterScrollRow} contentContainerStyle={{ gap: Spacing.xs, paddingHorizontal: Spacing.base }}>
+            style={styles.filterScrollRow} contentContainerStyle={{ gap: Spacing.xs, paddingHorizontal: Spacing.base, alignItems: 'center' }}>
             {([
               { id: 'accuracy' as ChartTab, label: '📈 Accuracy Trend' },
               { id: 'difficulty' as ChartTab, label: '🎯 Difficulty' },
@@ -481,7 +483,7 @@ export default function ProgressScreen() {
             ))}
           </ScrollView>
 
-          <ScrollView contentContainerStyle={[styles.modalList, { gap: Spacing.md }]}>
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.modalList, { gap: Spacing.md }]}>
 
             {/* Accuracy trend chart */}
             {chartTab === 'accuracy' && (
@@ -490,11 +492,12 @@ export default function ProgressScreen() {
                   <Text style={styles.chartCardTitle}>Accuracy Over Time</Text>
                   <Text style={styles.chartCardSub}>Last 15 sessions</Text>
                   {/* Game filter */}
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: Spacing.md }}
-                    contentContainerStyle={{ gap: Spacing.xs }}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}
+                    style={{ height: 44, marginBottom: Spacing.md, flexGrow: 0, flexShrink: 0 }}
+                    contentContainerStyle={{ gap: Spacing.xs, alignItems: 'center' }}>
                     {(['all', 'color_match', 'hue_hunt', 'shade_spectrum', 'color_sort'] as GameFilter[]).map(g => (
                       <TouchableOpacity key={g}
-                        style={[styles.filterBtn, { paddingVertical: 4 },
+                        style={[styles.filterBtn,
                           chartGameFilter === g && { ...styles.filterBtnOn, backgroundColor: GAME_COLORS[g], borderColor: GAME_COLORS[g] }]}
                         onPress={() => setChartGameFilter(g)}>
                         <Text style={[styles.filterBtnTxt, { fontSize: 10 }, chartGameFilter === g && styles.filterBtnTxtOn]}>
@@ -546,11 +549,12 @@ export default function ProgressScreen() {
                 <View style={styles.chartCard}>
                   <Text style={styles.chartCardTitle}>Difficulty Progression</Text>
                   <Text style={styles.chartCardSub}>How your difficulty level has changed</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: Spacing.md }}
-                    contentContainerStyle={{ gap: Spacing.xs }}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}
+                    style={{ height: 44, marginBottom: Spacing.md, flexGrow: 0, flexShrink: 0 }}
+                    contentContainerStyle={{ gap: Spacing.xs, alignItems: 'center' }}>
                     {(['all', 'color_match', 'hue_hunt', 'shade_spectrum', 'color_sort'] as GameFilter[]).map(g => (
                       <TouchableOpacity key={g}
-                        style={[styles.filterBtn, { paddingVertical: 4 },
+                        style={[styles.filterBtn,
                           chartGameFilter === g && { ...styles.filterBtnOn, backgroundColor: GAME_COLORS[g], borderColor: GAME_COLORS[g] }]}
                         onPress={() => setChartGameFilter(g)}>
                         <Text style={[styles.filterBtnTxt, { fontSize: 10 }, chartGameFilter === g && styles.filterBtnTxtOn]}>
@@ -822,7 +826,7 @@ const styles = StyleSheet.create({
   barLabel: { fontSize: 9, color: Colors.textMuted, marginTop: 2 },
   chartNote: { fontSize: Typography.size.xs, color: Colors.textMuted, marginTop: Spacing.sm, textAlign: 'center' },
   gameStatsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
-  gameStatBox: { width: '47%', backgroundColor: Colors.surfaceAlt, borderRadius: Radius.md, padding: Spacing.sm, borderTopWidth: 3, alignItems: 'center' },
+  gameStatBox: { width: '47%', backgroundColor: Colors.surfaceAlt, borderRadius: Radius.md, padding: Spacing.sm, borderTopWidth: 3, alignItems: 'center', justifyContent: 'center' },
   gameStatEmoji: { fontSize: 22, marginBottom: 2 },
   gameStatAvg: { fontSize: Typography.size.lg, fontWeight: '800' },
   gameStatLbl: { fontSize: 9, color: Colors.textSecondary, fontWeight: '600', textAlign: 'center' },
@@ -855,9 +859,9 @@ const styles = StyleSheet.create({
   modalList: { padding: Spacing.base, paddingBottom: Spacing['4xl'] },
   separator: { height: 1, backgroundColor: Colors.border, marginVertical: Spacing.sm },
   filterRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, padding: Spacing.base, paddingBottom: Spacing.sm },
-  filterScrollRow: { paddingVertical: Spacing.sm, paddingBottom: Spacing.xs },
+  filterScrollRow: { height: 44, paddingHorizontal: 0, flexGrow: 0, flexShrink: 0 },
   filterLabel: { color: Colors.textSecondary, fontSize: Typography.size.sm, fontWeight: '600' },
-  filterBtn: { paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs, borderRadius: Radius.full, backgroundColor: Colors.surfaceAlt, borderWidth: 2, borderColor: Colors.border },
+  filterBtn: { height: 32, paddingHorizontal: Spacing.md, paddingVertical: 0, borderRadius: Radius.full, backgroundColor: Colors.surfaceAlt, borderWidth: 2, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center', alignSelf: 'center' },
   filterBtnOn: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   filterBtnTxt: { fontSize: Typography.size.xs, fontWeight: '700', color: Colors.textSecondary },
   filterBtnTxtOn: { color: Colors.textInverted },

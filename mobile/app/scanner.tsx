@@ -151,11 +151,7 @@ export default function ScannerScreen() {
   if (mode === 'camera') {
     return (
       <View style={styles.container}>
-        <CameraView ref={cameraRef} style={styles.camera} facing="back">
-          <View style={styles.cameraOverlay}>
-            <Text style={styles.hint}>Frame what you want to sample</Text>
-          </View>
-        </CameraView>
+        <CameraView ref={cameraRef} style={styles.camera} facing="back" />
 
         <View style={styles.shutterBar}>
           <TouchableOpacity
@@ -169,7 +165,7 @@ export default function ScannerScreen() {
               ? <ActivityIndicator color="#fff" />
               : <View style={styles.shutterInner} />}
           </TouchableOpacity>
-          <Text style={styles.shutterHint}>Tap to capture</Text>
+
         </View>
       </View>
     );
@@ -238,14 +234,7 @@ export default function ScannerScreen() {
           </View>
         )}
 
-        {/* First-use hint */}
-        {!tap && (
-          <View pointerEvents="none" style={styles.tapHintOverlay}>
-            <View style={styles.tapHintBadge}>
-              <Text style={styles.tapHintText}>👆  Tap anywhere to identify a color</Text>
-            </View>
-          </View>
-        )}
+
       </Pressable>
 
       {/* Bottom bar */}
