@@ -13,6 +13,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { trainingApi, type GameType, type RoundResult } from '../../src/services/api';
 import { Colors, Typography, Spacing, Radius, Shadow } from '../../src/constants/theme';
 import { hsvToRgb } from '../../src/utils/colorUtils';
+import { useAuthStore } from '../../src/store/authStore';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -239,6 +240,7 @@ const GAME_META: Record<string, { label: string; emoji: string; instr: string }>
 export default function TrainingGameScreen() {
   const { gameType } = useLocalSearchParams<{ gameType: GameType }>();
   const router = useRouter();
+  const { refreshUser } = useAuthStore();
 
   const [phase, setPhase] = useState<GamePhase>('ready');
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -355,8 +357,11 @@ export default function TrainingGameScreen() {
   async function finishGame(finalRounds: RoundResult[]) {
     setPhase('complete');
     if (sessionId) {
-      try { await trainingApi.completeSession(sessionId, finalRounds); }
-      catch { /* non-critical */ }
+      try {
+        await trainingApi.completeSession(sessionId, finalRounds);
+        // Refresh user so streakDays updates immediately in the UI
+        await refreshUser();
+      } catch { /* non-critical */ }
     }
   }
 
@@ -383,7 +388,9 @@ export default function TrainingGameScreen() {
             </View>
           </View>
           <TouchableOpacity style={styles.primaryBtn} onPress={startGame}>
-            <Text style={styles.primaryBtnTxt}>Start Game</Text>
+            <Text style={styles.primaryBtnTxt}>
+              {gt === 'color_sort' ? 'Next' : 'Start Game'}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -415,8 +422,8 @@ export default function TrainingGameScreen() {
             </View>
           );
         })}
-        <TouchableOpacity style={[styles.primaryBtn, { marginTop: Spacing.xl }]} onPress={beginPlaying}>
-          <Text style={styles.primaryBtnTxt}>Next →  Start Game</Text>
+        <TouchableOpacity style={[styles.primaryBtn, styles.primaryBtnCentered, { marginTop: Spacing.xl }]} onPress={beginPlaying}>
+          <Text style={styles.primaryBtnTxt}>Start Game</Text>
         </TouchableOpacity>
       </ScrollView>
     );
@@ -678,6 +685,7 @@ const styles = StyleSheet.create({
   diffBtnTxt:  { fontWeight: '700', color: Colors.textSecondary },
   diffBtnTxtOn:{ color: Colors.textInverted },
   primaryBtn:  { marginTop: Spacing.xl, backgroundColor: Colors.primary, borderRadius: Radius.lg, paddingHorizontal: Spacing['3xl'], paddingVertical: Spacing.md, ...Shadow.md },
+  primaryBtnCentered: { alignSelf: 'center', marginHorizontal: Spacing.xl },
   primaryBtnTxt: { color: Colors.textInverted, fontSize: Typography.size.md, fontWeight: '700' },
 
   // Color Sort Preview
