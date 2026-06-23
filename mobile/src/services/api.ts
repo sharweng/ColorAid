@@ -290,6 +290,31 @@ export const progressApi = {
     }>('/progress'),
 };
 
+// ─── Shop API ─────────────────────────────────────────────────────────────────
+
+export interface ShopItem {
+  id: string;
+  key: string;
+  name: string;
+  description: string;
+  category: string;
+  coinCost: number;
+  imageUrl: string | null;
+  isActive: boolean;
+}
+
+export interface UserItem {
+  shopItemId: string;
+  quantity: number;
+}
+
+export const shopApi = {
+  getShopData: () =>
+    apiFetch<{ coins: number; items: ShopItem[]; inventory: UserItem[] }>('/shop'),
+  purchaseItem: (itemId: string) =>
+    apiFetch<{ success: boolean; message: string }>(`/shop/purchase/${itemId}`, { method: 'POST' }),
+};
+
 export interface SampledColor {
   r: number;
   g: number;

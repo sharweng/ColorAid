@@ -40,6 +40,16 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="shop"
+        options={{
+          title: 'Store',
+          tabBarLabel: 'Store',
+          tabBarIcon: ({ color }) => (
+            <TabIcon emoji="🛒" color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
