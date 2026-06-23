@@ -1,0 +1,49 @@
+{
+  "expo": {
+    "name": "ColorAid",
+    "slug": "coloraid",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#6C63FF"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.coloraid.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "ColorAid uses the camera to identify colors in real time for color-blind users."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#6C63FF"
+      },
+      "package": "com.coloraid.app",
+      "permissions": ["android.permission.CAMERA"]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "ColorAid uses the camera to identify colors in real time."
+        }
+      ]
+    ],
+    "scheme": "coloraid",
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {}
+  }
+}

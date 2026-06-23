@@ -1,0 +1,8 @@
+.env
+mobile/.env
+mobile/node_modules
+backend/.env
+backend/node_modules
+backend/dist
+backend/src
+backend/prisma

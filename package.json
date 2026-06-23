@@ -1,0 +1,15 @@
+{
+  "name": "coloraid",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "backend:dev": "cd backend && npm run dev",
+    "backend:build": "cd backend && npm run build",
+    "backend:start": "cd backend && npm start",
+    "backend:seed": "cd backend && npm run db:seed",
+    "mobile:start": "cd mobile && npm start",
+    "mobile:android": "cd mobile && npm run android",
+    "mobile:ios": "cd mobile && npm run ios",
+    "setup": "cd backend && npm install && npm run db:push && npm run db:seed && cd ../mobile && npm install"
+  }
+}
