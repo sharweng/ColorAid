@@ -227,7 +227,7 @@ export const trainingApi = {
   completeSession: (sessionId: string, rounds: RoundResult[]) =>
     apiFetch<SessionCompleteResponse>(`/training/sessions/${sessionId}/complete`, {
       method: 'POST',
-      body: JSON.stringify({ rounds }),
+      body: JSON.stringify({ rounds, timezoneOffset: new Date().getTimezoneOffset() }),
     }),
 
   getHistory: (gameType?: GameType) =>
