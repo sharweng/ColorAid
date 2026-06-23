@@ -23,7 +23,7 @@ const SW = Dimensions.get('window').width;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type GamePhase = 'ready' | 'playing' | 'feedback' | 'complete';
+type GamePhase = 'ready' | 'preview' | 'playing' | 'feedback' | 'complete';
 
 interface CS { hex: string; h: number; s: number; v: number; label: string }
 
@@ -178,6 +178,11 @@ const RANGES_EASY:  [number,number][] = [[345,20], [80,160], [215,260]];
 const RANGES_MED:   [number,number][] = [[340,20], [15,65], [65,165], [200,255], [255,340]];
 const RANGES_HARD:  [number,number][] = [[345,15], [12,42], [40,68], [65,155], [195,255], [255,345]];
 
+// Representative hues for each category used in the preview screen
+const PREVIEW_HUES_EASY:  number[] = [0, 120, 230];
+const PREVIEW_HUES_MED:   number[] = [0, 35, 120, 225, 290];
+const PREVIEW_HUES_HARD:  number[] = [0, 25, 55, 110, 225, 300];
+
 function randHueInRange([lo, hi]: [number, number], boundary: boolean, diff: number): number {
   const span = hi > lo ? hi - lo : hi + 360 - lo;
   let offset: number;
@@ -192,6 +197,15 @@ function randHueInRange([lo, hi]: [number, number], boundary: boolean, diff: num
   return (lo + offset + 360) % 360;
 }
 
+/** Generate 3 representative swatches spread across a hue range */
+function previewSwatchesForRange([lo, hi]: [number,number]): CS[] {
+  const span = hi > lo ? hi - lo : hi + 360 - lo;
+  return [0.2, 0.5, 0.8].map(t => {
+    const hue = (lo + Math.round(span * t) + 360) % 360;
+    return mkSwatch(hue, 70, 62);
+  });
+}
+
 function genColorSort(diff: number): Extract<Round, { kind: 'color_sort' }> {
   const [cats, ranges] = diff <= 3 ? [CATS_EASY, RANGES_EASY]
     : diff <= 6 ? [CATS_MED, RANGES_MED]
@@ -202,6 +216,13 @@ function genColorSort(diff: number): Extract<Round, { kind: 'color_sort' }> {
   const swatch = mkSwatch(hue, 60 + Math.floor(Math.random() * 20), 55 + Math.floor(Math.random() * 20));
 
   return { kind: 'color_sort', swatch, cats, correctCatIdx };
+}
+
+/** Returns the category/range arrays for a given difficulty */
+function getCatsAndRanges(diff: number): { cats: string[]; ranges: [number,number][]; previewHues: number[] } {
+  if (diff <= 3) return { cats: CATS_EASY, ranges: RANGES_EASY, previewHues: PREVIEW_HUES_EASY };
+  if (diff <= 6) return { cats: CATS_MED,  ranges: RANGES_MED,  previewHues: PREVIEW_HUES_MED };
+  return             { cats: CATS_HARD, ranges: RANGES_HARD, previewHues: PREVIEW_HUES_HARD };
 }
 
 // ─── Game Meta ────────────────────────────────────────────────────────────────
@@ -228,7 +249,8 @@ export default function TrainingGameScreen() {
   const [startTime, setStartTime] = useState(0);
   const [score, setScore] = useState(0);
   const [lastCorrect, setLastCorrect] = useState<boolean | null>(null);
-  const [shadeProgress, setShadeProgress] = useState<number[]>([]);  // shade_spectrum only
+  // shade_spectrum: ordered list the user is building (indices into swatches[])
+  const [shadeOrder, setShadeOrder] = useState<number[]>([]);
   const feedbackAnim = useRef(new Animated.Value(0)).current;
 
   const gt = (gameType ?? 'color_match') as GameType;
@@ -247,11 +269,21 @@ export default function TrainingGameScreen() {
       setSessionId(id);
       setRounds([]);
       setScore(0);
-      pushRound(0, difficulty);
-      setPhase('playing');
+      // For color_sort, show the category preview first
+      if (gt === 'color_sort') {
+        setPhase('preview');
+      } else {
+        pushRound(0, difficulty);
+        setPhase('playing');
+      }
     } catch {
       Alert.alert('Error', 'Could not start game. Please try again.');
     }
+  }
+
+  function beginPlaying() {
+    pushRound(0, difficulty);
+    setPhase('playing');
   }
 
   function pushRound(done: number, diff: number) {
@@ -259,7 +291,7 @@ export default function TrainingGameScreen() {
     setRoundNum(done + 1);
     setStartTime(Date.now());
     setLastCorrect(null);
-    setShadeProgress([]);
+    setShadeOrder([]);
   }
 
   function commit(isCorrect: boolean) {
@@ -286,6 +318,29 @@ export default function TrainingGameScreen() {
       if (newRounds.length >= ROUNDS) { finishGame(newRounds); }
       else { pushRound(newRounds.length, difficulty); setPhase('playing'); }
     });
+  }
+
+  // shade_spectrum: tap a swatch to add/remove it from the ordered sequence
+  function onShadeTap(i: number) {
+    if (phase !== 'playing') return;
+    setShadeOrder(prev => {
+      if (prev.includes(i)) {
+        // Deselect — remove from order
+        return prev.filter(x => x !== i);
+      } else {
+        // Append to end of sequence
+        return [...prev, i];
+      }
+    });
+  }
+
+  // shade_spectrum: submit the current order for judging
+  function submitShadeOrder() {
+    if (!round || round.kind !== 'shade_spectrum') return;
+    const n = round.swatches.length;
+    if (shadeOrder.length !== n) return; // shouldn't happen — button disabled
+    const isCorrect = shadeOrder.every((swatchIdx, k) => swatchIdx === round.sortedOrder[k]);
+    commit(isCorrect);
   }
 
   function getLabel(r: Round): string {
@@ -332,6 +387,38 @@ export default function TrainingGameScreen() {
           </TouchableOpacity>
         </View>
       </View>
+    );
+  }
+
+  // ── COLOR SORT PREVIEW ────────────────────────────────────────────────────
+  // Shows the player all color categories with example swatches before gameplay.
+
+  if (phase === 'preview' && gt === 'color_sort') {
+    const { cats, ranges } = getCatsAndRanges(difficulty);
+    return (
+      <ScrollView style={styles.container} contentContainerStyle={styles.previewBox}>
+        <Text style={styles.previewTitle}>🗂️ Color Categories</Text>
+        <Text style={styles.previewSubtitle}>
+          Familiarise yourself with the categories before playing.
+          Each row shows example colors that belong to that group.
+        </Text>
+        {cats.map((cat, ci) => {
+          const swatches = previewSwatchesForRange(ranges[ci] as [number, number]);
+          return (
+            <View key={ci} style={styles.previewRow}>
+              <Text style={styles.previewCatName}>{cat}</Text>
+              <View style={styles.previewSwatches}>
+                {swatches.map((sw, si) => (
+                  <View key={si} style={[styles.previewSwatch, { backgroundColor: sw.hex }]} />
+                ))}
+              </View>
+            </View>
+          );
+        })}
+        <TouchableOpacity style={[styles.primaryBtn, { marginTop: Spacing.xl }]} onPress={beginPlaying}>
+          <Text style={styles.primaryBtnTxt}>Next →  Start Game</Text>
+        </TouchableOpacity>
+      </ScrollView>
     );
   }
 
@@ -458,64 +545,85 @@ export default function TrainingGameScreen() {
     const n = round.swatches.length;
     const gap = 10;
     const cellW = Math.min(72, Math.floor((SW - 32 - gap * (n - 1)) / n));
-    const nextCorrect = round.sortedOrder[shadeProgress.length];
-
-    function onShadeTap(i: number) {
-      if (disabled || shadeProgress.includes(i)) return;
-      if (i === nextCorrect) {
-        const prog = [...shadeProgress, i];
-        setShadeProgress(prog);
-        if (prog.length === n) commit(true);   // all done correctly!
-      } else {
-        commit(false);   // wrong tap — round fails
-      }
-    }
+    const allSelected = shadeOrder.length === n;
 
     return (
       <View style={styles.container}>
         {header}
         <View style={styles.shadeSection}>
-          <Text style={styles.shadeHint}>Tap from lightest → darkest</Text>
+          <Text style={styles.shadeHint}>Order from lightest → darkest</Text>
 
-          {/* Progress chain */}
+          {/* Ordered sequence the user is building */}
+          <Text style={styles.shadeSeqLabel}>Your order (tap a placed swatch to remove it):</Text>
           <View style={styles.shadeChain}>
             {Array.from({ length: n }).map((_, k) => (
               <View key={k} style={styles.shadeChainItem}>
                 {k > 0 && <Text style={styles.shadeArrow}>›</Text>}
-                {k < shadeProgress.length
-                  ? <View style={[styles.shadeChainDot,
-                      { backgroundColor: round.swatches[shadeProgress[k]].hex }]} />
-                  : <View style={[styles.shadeChainDot, styles.shadeChainEmpty]} />}
+                {k < shadeOrder.length ? (
+                  <TouchableOpacity
+                    onPress={() => !disabled && onShadeTap(shadeOrder[k])}
+                    style={[styles.shadeChainDot, { backgroundColor: round.swatches[shadeOrder[k]].hex }]}
+                    accessibilityLabel={`Remove position ${k + 1}`}
+                  />
+                ) : (
+                  <View style={[styles.shadeChainDot, styles.shadeChainEmpty]}>
+                    <Text style={styles.shadeChainNum}>{k + 1}</Text>
+                  </View>
+                )}
               </View>
             ))}
           </View>
 
           <Text style={styles.shadePickHint}>
-            {shadeProgress.length === 0
-              ? 'Start with the LIGHTEST shade'
-              : shadeProgress.length === n - 1
-              ? 'Last one — tap the DARKEST'
-              : `${n - shadeProgress.length} remaining`}
+            {disabled
+              ? ''
+              : shadeOrder.length === 0
+              ? 'Tap the LIGHTEST shade first'
+              : allSelected
+              ? 'Review your order, then submit!'
+              : `Select shade #${shadeOrder.length + 1} — tap to place, tap chain to remove`}
           </Text>
 
-          {/* Available swatches */}
+          {/* Available swatches palette */}
           <View style={[styles.shadeOpts, { gap }]}>
             {round.swatches.map((sw, i) => {
-              const done = shadeProgress.includes(i);
-              const isNextHint = disabled && !lastCorrect && i === nextCorrect;
+              const posInOrder = shadeOrder.indexOf(i);
+              const isPlaced = posInOrder >= 0;
+              const isHintIncorrect = disabled && !lastCorrect && i === round.sortedOrder[0];
               return (
                 <TouchableOpacity key={i}
                   style={[styles.shadeOpt, { width: cellW, height: cellW },
-                    done && styles.shadeOptDone,
-                    isNextHint && styles.optCorrect]}
+                    isPlaced && styles.shadeOptPlaced,
+                    isHintIncorrect && styles.optCorrect]}
                   onPress={() => onShadeTap(i)}
-                  disabled={disabled || done} accessibilityRole="button">
+                  disabled={disabled}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Shade ${i + 1}${isPlaced ? `, placed at position ${posInOrder + 1}` : ''}`}>
                   <View style={[StyleSheet.absoluteFill,
-                    { borderRadius: Radius.md, backgroundColor: sw.hex, opacity: done ? 0.2 : 1 }]} />
+                    { borderRadius: Radius.md, backgroundColor: sw.hex, opacity: isPlaced ? 0.35 : 1 }]} />
+                  {isPlaced && (
+                    <View style={styles.shadeOptBadge}>
+                      <Text style={styles.shadeOptBadgeTxt}>{posInOrder + 1}</Text>
+                    </View>
+                  )}
                 </TouchableOpacity>
               );
             })}
           </View>
+
+          {/* Submit button */}
+          {!disabled && (
+            <TouchableOpacity
+              style={[styles.submitBtn, !allSelected && styles.submitBtnDisabled]}
+              onPress={submitShadeOrder}
+              disabled={!allSelected}
+              accessibilityRole="button"
+              accessibilityLabel="Submit order">
+              <Text style={styles.submitBtnTxt}>
+                {allSelected ? 'Submit ✓' : `Place all ${n} shades to submit`}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
         {feedback}
       </View>
@@ -572,6 +680,15 @@ const styles = StyleSheet.create({
   primaryBtn:  { marginTop: Spacing.xl, backgroundColor: Colors.primary, borderRadius: Radius.lg, paddingHorizontal: Spacing['3xl'], paddingVertical: Spacing.md, ...Shadow.md },
   primaryBtnTxt: { color: Colors.textInverted, fontSize: Typography.size.md, fontWeight: '700' },
 
+  // Color Sort Preview
+  previewBox:       { padding: Spacing.xl, paddingBottom: 80 },
+  previewTitle:     { fontSize: Typography.size['2xl'], fontWeight: '800', color: Colors.textPrimary, textAlign: 'center', marginBottom: Spacing.sm },
+  previewSubtitle:  { fontSize: Typography.size.sm, color: Colors.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: Spacing.xl },
+  previewRow:       { backgroundColor: Colors.surface, borderRadius: Radius.lg, padding: Spacing.md, marginBottom: Spacing.sm, flexDirection: 'row', alignItems: 'center', ...Shadow.sm },
+  previewCatName:   { flex: 1, fontWeight: '700', color: Colors.textPrimary, fontSize: Typography.size.base },
+  previewSwatches:  { flexDirection: 'row', gap: Spacing.sm },
+  previewSwatch:    { width: 36, height: 36, borderRadius: Radius.md, ...Shadow.sm },
+
   // Complete
   completeBox:   { alignItems: 'center', padding: Spacing.xl, paddingBottom: 80 },
   completeEmoji: { fontSize: 72, marginBottom: Spacing.md },
@@ -613,16 +730,23 @@ const styles = StyleSheet.create({
 
   // Shade Spectrum
   shadeSection:    { flex: 1, padding: Spacing.base },
-  shadeHint:       { textAlign: 'center', fontWeight: '700', color: Colors.textPrimary, fontSize: Typography.size.md, marginBottom: Spacing.lg },
-  shadeChain:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.xl },
+  shadeHint:       { textAlign: 'center', fontWeight: '700', color: Colors.textPrimary, fontSize: Typography.size.md, marginBottom: Spacing.sm },
+  shadeSeqLabel:   { textAlign: 'center', color: Colors.textMuted, fontSize: Typography.size.xs, marginBottom: Spacing.sm },
+  shadeChain:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.md },
   shadeChainItem:  { flexDirection: 'row', alignItems: 'center' },
-  shadeChainDot:   { width: 34, height: 34, borderRadius: 17, ...Shadow.sm },
+  shadeChainDot:   { width: 34, height: 34, borderRadius: 17, ...Shadow.sm, alignItems: 'center', justifyContent: 'center' },
   shadeChainEmpty: { backgroundColor: Colors.border },
+  shadeChainNum:   { fontSize: Typography.size.xs, color: Colors.textMuted, fontWeight: '700' },
   shadeArrow:      { fontSize: 18, color: Colors.textMuted, marginHorizontal: 3 },
-  shadePickHint:   { textAlign: 'center', color: Colors.textSecondary, fontSize: Typography.size.sm, marginBottom: Spacing.lg },
+  shadePickHint:   { textAlign: 'center', color: Colors.textSecondary, fontSize: Typography.size.sm, marginBottom: Spacing.md, minHeight: 18 },
   shadeOpts:       { flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap' },
-  shadeOpt:        { borderRadius: Radius.md, overflow: 'hidden', borderWidth: 3, borderColor: 'transparent', ...Shadow.md },
-  shadeOptDone:    { borderColor: Colors.success },
+  shadeOpt:        { borderRadius: Radius.md, overflow: 'hidden', borderWidth: 3, borderColor: 'transparent', ...Shadow.md, alignItems: 'center', justifyContent: 'center' },
+  shadeOptPlaced:  { borderColor: Colors.primary, opacity: 0.7 },
+  shadeOptBadge:   { position: 'absolute', bottom: 4, right: 4, backgroundColor: Colors.primary, borderRadius: 9, width: 18, height: 18, alignItems: 'center', justifyContent: 'center' },
+  shadeOptBadgeTxt:{ color: Colors.textInverted, fontSize: 10, fontWeight: '900' },
+  submitBtn:       { marginTop: Spacing.lg, backgroundColor: Colors.primary, borderRadius: Radius.lg, paddingHorizontal: Spacing['2xl'], paddingVertical: Spacing.md, alignItems: 'center', ...Shadow.md },
+  submitBtnDisabled:{ backgroundColor: Colors.border },
+  submitBtnTxt:    { color: Colors.textInverted, fontWeight: '800', fontSize: Typography.size.base },
 
   // Color Sort
   sortSection: { flex: 1, alignItems: 'center', padding: Spacing.base },
