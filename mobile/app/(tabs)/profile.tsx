@@ -15,7 +15,7 @@ export default function ProfileScreen() {
   const [leaderboard, setLeaderboard] = useState<Array<{ id: string; username: string; totalXp: number; level: number }>>([]);
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
 
-  // Refresh user stats every time this tab is focused
+  // Refresh user stats every time this tab is focused (covers initial mount too)
   useFocusEffect(
     useCallback(() => {
       refreshUser();
@@ -23,9 +23,7 @@ export default function ProfileScreen() {
     }, [])
   );
 
-  useEffect(() => {
-    loadLeaderboard();
-  }, []);
+  // Removed duplicate useEffect — useFocusEffect above already fires on mount
 
   async function loadLeaderboard() {
     setLoadingLeaderboard(true);

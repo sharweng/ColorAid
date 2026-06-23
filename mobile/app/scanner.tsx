@@ -112,20 +112,23 @@ export default function ScannerScreen() {
     if (!captured || !containerSize) return;
     const { locationX, locationY } = event.nativeEvent;
 
-    // Compute where the image renders inside the container with resizeMode: contain
+    // Compute where the image renders inside the container with resizeMode: cover.
+    // Cover scales the image so it *fills* the container (the larger scale wins),
+    // meaning one axis may overflow (negative offset). Clamping to [0,1] keeps
+    // normX/normY valid even when the user taps near a cropped edge.
     const containerAspect = containerSize.width / containerSize.height;
     const imageAspect = captured.width / captured.height;
 
-    let scale: number, offsetX: number, offsetY: number;
+    let scale: number;
     if (imageAspect > containerAspect) {
-      scale = containerSize.width / captured.width;
-      offsetX = 0;
-      offsetY = (containerSize.height - captured.height * scale) / 2;
-    } else {
+      // Image is wider than container — fit height, crop left/right
       scale = containerSize.height / captured.height;
-      offsetX = (containerSize.width - captured.width * scale) / 2;
-      offsetY = 0;
+    } else {
+      // Image is taller than container — fit width, crop top/bottom
+      scale = containerSize.width / captured.width;
     }
+    const offsetX = (containerSize.width - captured.width * scale) / 2;  // ≤ 0 on cropped axis
+    const offsetY = (containerSize.height - captured.height * scale) / 2;
 
     const normX = Math.max(0, Math.min((locationX - offsetX) / (captured.width * scale), 1));
     const normY = Math.max(0, Math.min((locationY - offsetY) / (captured.height * scale), 1));
@@ -199,7 +202,7 @@ export default function ScannerScreen() {
         <Image
           source={{ uri: captured.displayUri }}
           style={StyleSheet.absoluteFill}
-          resizeMode="contain"
+          resizeMode="cover"
         />
 
         {/* Tap indicator dot */}
