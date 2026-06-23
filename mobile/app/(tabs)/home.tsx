@@ -1,6 +1,7 @@
-import React, { useEffect } from 'react';
+import React, { useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { useAuthStore } from '../../src/store/authStore';
 import { Colors, Typography, Spacing, Radius, Shadow } from '../../src/constants/theme';
 import { CvdTypeColors } from '../../src/constants/theme';
@@ -40,6 +41,13 @@ export default function HomeScreen() {
   const router = useRouter();
   const { user, refreshUser } = useAuthStore();
   const [refreshing, setRefreshing] = React.useState(false);
+
+  // Refresh user stats every time this tab comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      refreshUser();
+    }, [])
+  );
 
   async function onRefresh() {
     setRefreshing(true);

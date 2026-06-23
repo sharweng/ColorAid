@@ -1,18 +1,27 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert, ActivityIndicator } from 'react-native';
 import { useAuthStore } from '../../src/store/authStore';
 import { profileApi } from '../../src/services/api';
 import { Colors, Typography, Spacing, Radius, Shadow, CvdTypeColors } from '../../src/constants/theme';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 
 const AVATAR_OPTIONS = ['🧑', '👩', '👨', '🧒', '👦', '👧', '🧑‍🦱', '🧑‍🦰', '🧑‍🦳', '🧑‍🦲'];
 
 export default function ProfileScreen() {
-  const { user, logout, refreshUser } = useAuthStore();
+  const { user, logout, refreshUser, updateUser } = useAuthStore();
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
   const [leaderboard, setLeaderboard] = useState<Array<{ id: string; username: string; totalXp: number; level: number }>>([]);
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
+
+  // Refresh user stats every time this tab is focused
+  useFocusEffect(
+    useCallback(() => {
+      refreshUser();
+      loadLeaderboard();
+    }, [])
+  );
 
   useEffect(() => {
     loadLeaderboard();
@@ -96,7 +105,17 @@ export default function ProfileScreen() {
             <TouchableOpacity
               key={emoji}
               style={[styles.avatarOption, avatarConfig.emoji === emoji && styles.avatarOptionSelected]}
-              onPress={() => profileApi.updateAvatar({ emoji })}
+              onPress={async () => {
+                // Update local store immediately for instant visual feedback
+                updateUser({ avatarConfig: JSON.stringify({ emoji }) });
+                try {
+                  await profileApi.updateAvatar({ emoji });
+                  await refreshUser(); // sync with server
+                } catch {
+                  // Revert on failure
+                  refreshUser();
+                }
+              }}
               accessibilityRole="button"
               accessibilityLabel={`Select avatar ${emoji}`}
             >

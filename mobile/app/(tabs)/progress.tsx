@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, RefreshControl, ActivityIndicator,
   TouchableOpacity, Modal, FlatList, SafeAreaView,
@@ -7,6 +7,7 @@ import { progressApi, achievementsApi, type Achievement } from '../../src/servic
 import { Colors, Typography, Spacing, Radius, Shadow } from '../../src/constants/theme';
 import { useAuthStore } from '../../src/store/authStore';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 
 type SortOrder = 'latest' | 'earliest';
 
@@ -44,6 +45,13 @@ export default function ProgressScreen() {
   }
 
   useEffect(() => { load(); }, []);
+
+  // Reload data every time the Progress tab comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [])
+  );
 
   if (loading) {
     return <View style={styles.center}><ActivityIndicator size="large" color={Colors.primary} /></View>;
