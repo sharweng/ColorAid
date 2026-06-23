@@ -329,7 +329,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.base,
     paddingVertical: Spacing.md,
     gap: Spacing.md,
-    minHeight: 72,
+    height: 110,
   },
   retakeButton: {
     paddingHorizontal: Spacing.md,
