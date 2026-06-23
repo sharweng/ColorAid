@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { authApi, storeTokens, clearTokens, type UserProfile } from '../services/api';
+import { authApi, storeTokens, clearTokens, type UserProfile, ApiError } from '../services/api';
 
 interface AuthState {
   user: UserProfile | null;
@@ -66,8 +66,10 @@ export const useAuthStore = create<AuthState>()(
         try {
           const user = await authApi.getMe();
           set({ user, isAuthenticated: true });
-        } catch {
-          set({ user: null, isAuthenticated: false });
+        } catch (err) {
+          if (err instanceof ApiError && err.status === 401) {
+            set({ user: null, isAuthenticated: false });
+          }
         }
       },
 
