@@ -251,6 +251,11 @@ export const profileApi = {
   getProfile: () => apiFetch<UserProfile>('/profile'),
   updateAvatar: (avatarConfig: Record<string, unknown>) =>
     apiFetch('/profile/avatar', { method: 'PATCH', body: JSON.stringify({ avatarConfig }) }),
+  updateUsername: (username: string) =>
+    apiFetch<{ username: string }>('/profile/username', {
+      method: 'PATCH',
+      body: JSON.stringify({ username }),
+    }),
   getLeaderboard: () =>
     apiFetch<Array<{ id: string; username: string; totalXp: number; level: number }>>('/profile/leaderboard'),
 };

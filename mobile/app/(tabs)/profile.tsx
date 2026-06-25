@@ -14,7 +14,9 @@ import {
   SafeAreaView,
   Platform,
   StatusBar,
+  TextInput,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../src/store/authStore';
 import { profileApi, shopApi, type ShopItem, type UserItem } from '../../src/services/api';
 import { Colors, Typography, Spacing, Radius, Shadow } from '../../src/constants/theme';
@@ -227,6 +229,9 @@ export default function ProfileScreen() {
   const [inventory, setInventory] = useState<string[]>([]);
   const [shopItems, setShopItems] = useState<ShopItem[]>([]);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const [editingUsername, setEditingUsername] = useState(false);
+  const [usernameInput, setUsernameInput] = useState('');
+  const [savingUsername, setSavingUsername] = useState(false);
 
   const avatarConfig = parseAvatarConfig(user?.avatarConfig);
   const isPhotoAvatar = avatarConfig.type === 'photo' && !!avatarConfig.uri;
@@ -370,6 +375,46 @@ export default function ProfileScreen() {
     }
   }
 
+  // ── Username editing ──────────────────────────────────────────────────────
+
+  function startEditingUsername() {
+    setUsernameInput(user?.username ?? '');
+    setEditingUsername(true);
+  }
+
+  function cancelEditingUsername() {
+    setEditingUsername(false);
+    setUsernameInput('');
+  }
+
+  async function handleSaveUsername() {
+    const trimmed = usernameInput.trim();
+    if (trimmed === user?.username) {
+      cancelEditingUsername();
+      return;
+    }
+    if (trimmed.length < 3 || trimmed.length > 30) {
+      Alert.alert('Invalid Username', 'Username must be 3–30 characters.');
+      return;
+    }
+    if (!/^[a-zA-Z0-9_]+$/.test(trimmed)) {
+      Alert.alert('Invalid Username', 'Only letters, numbers, and underscores are allowed.');
+      return;
+    }
+    setSavingUsername(true);
+    try {
+      await profileApi.updateUsername(trimmed);
+      updateUser({ username: trimmed });
+      setEditingUsername(false);
+      setUsernameInput('');
+    } catch (err: any) {
+      const msg = err?.message ?? 'Failed to update username.';
+      Alert.alert('Error', msg);
+    } finally {
+      setSavingUsername(false);
+    }
+  }
+
   async function handleLogout() {
     Alert.alert('Log Out', 'Are you sure you want to log out?', [
       { text: 'Cancel', style: 'cancel' },
@@ -429,7 +474,51 @@ export default function ProfileScreen() {
               <Text style={styles.avatarEditIcon}>✏️</Text>
             </View>
           </TouchableOpacity>
-          <Text style={styles.username}>{user?.username ?? '—'}</Text>
+          {/* Username — tap ✏️ to edit inline */}
+          {editingUsername ? (
+            <View style={styles.usernameEditRow}>
+              <TextInput
+                style={styles.usernameInput}
+                value={usernameInput}
+                onChangeText={setUsernameInput}
+                autoFocus
+                autoCorrect={false}
+                autoCapitalize="none"
+                maxLength={30}
+                returnKeyType="done"
+                onSubmitEditing={handleSaveUsername}
+                accessibilityLabel="Edit username"
+              />
+              <TouchableOpacity
+                style={[styles.usernameActionBtn, styles.usernameActionBtnSave]}
+                onPress={handleSaveUsername}
+                disabled={savingUsername}
+                accessibilityLabel="Save username"
+              >
+                {savingUsername
+                  ? <ActivityIndicator size="small" color={Colors.textInverted} />
+                  : <Text style={styles.usernameActionBtnText}>Save</Text>}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.usernameActionBtn, styles.usernameActionBtnCancel]}
+                onPress={cancelEditingUsername}
+                disabled={savingUsername}
+                accessibilityLabel="Cancel username edit"
+              >
+                <Text style={[styles.usernameActionBtnText, { color: Colors.textSecondary }]}>✕</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.usernameRow}
+              onPress={startEditingUsername}
+              accessibilityRole="button"
+              accessibilityLabel="Edit username"
+            >
+              <Text style={styles.username}>{user?.username ?? '—'}</Text>
+              <Ionicons name="pencil-outline" size={16} color={Colors.textMuted} />
+            </TouchableOpacity>
+          )}
           <Text style={styles.email}>{user?.email ?? '—'}</Text>
           <View style={styles.levelBadge}>
             <Text style={styles.levelBadgeText}>Level {userLevel}</Text>
@@ -720,11 +809,50 @@ const styles = StyleSheet.create({
     borderColor: Colors.background,
   },
   avatarEditIcon: { fontSize: 10 },
+  // Username display & editing
+  usernameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: Spacing.md,
+    gap: Spacing.xs,
+  },
   username: {
     fontSize: Typography.size.xl,
     fontWeight: '800',
     color: Colors.textPrimary,
+  },
+
+  usernameEditRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginTop: Spacing.md,
+    gap: Spacing.xs,
+  },
+  usernameInput: {
+    flex: 1,
+    fontSize: Typography.size.xl,
+    fontWeight: '800',
+    color: Colors.textPrimary,
+    borderBottomWidth: 2,
+    borderBottomColor: Colors.primary,
+    paddingVertical: 2,
+    paddingHorizontal: 4,
+    minWidth: 80,
+  },
+  usernameActionBtn: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 6,
+    borderRadius: Radius.md,
+    minWidth: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  usernameActionBtnSave: { backgroundColor: Colors.primary },
+  usernameActionBtnCancel: { backgroundColor: Colors.surfaceAlt },
+  usernameActionBtnText: {
+    color: Colors.textInverted,
+    fontWeight: '700',
+    fontSize: Typography.size.sm,
   },
   email: { fontSize: Typography.size.sm, color: Colors.textSecondary, marginTop: 4 },
   levelBadge: {

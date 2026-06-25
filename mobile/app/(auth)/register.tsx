@@ -10,6 +10,7 @@ import {
   Platform,
   ActivityIndicator,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../src/store/authStore';
 import { Colors, Typography, Spacing, Radius, Shadow } from '../../src/constants/theme';
@@ -108,8 +109,17 @@ export default function RegisterScreen() {
                 placeholderTextColor={Colors.textMuted}
                 secureTextEntry={!showPassword}
               />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
-                <Text style={{ fontSize: 16 }}>{showPassword ? '🙈' : '👁️'}</Text>
+              <TouchableOpacity
+                onPress={() => setShowPassword(!showPassword)}
+                style={styles.eyeIcon}
+                accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+                accessibilityRole="button"
+              >
+                <Ionicons
+                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                  size={20}
+                  color={Colors.textMuted}
+                />
               </TouchableOpacity>
             </View>
           </View>
@@ -125,8 +135,17 @@ export default function RegisterScreen() {
                 placeholderTextColor={Colors.textMuted}
                 secureTextEntry={!showPassword}
               />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
-                <Text style={{ fontSize: 16 }}>{showPassword ? '🙈' : '👁️'}</Text>
+              <TouchableOpacity
+                onPress={() => setShowPassword(!showPassword)}
+                style={styles.eyeIcon}
+                accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+                accessibilityRole="button"
+              >
+                <Ionicons
+                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                  size={20}
+                  color={Colors.textMuted}
+                />
               </TouchableOpacity>
             </View>
           </View>
