@@ -59,7 +59,11 @@ export default function ShopScreen() {
           onPress: async () => {
             try {
               await shopApi.purchaseItem(item.id);
-              Alert.alert('Success', `${item.name} purchased!`);
+              const isAvatarItem = item.category === 'avatar';
+              const msg = isAvatarItem
+                ? `${item.name} purchased! Go to Profile → Customize Avatar to equip it.`
+                : `${item.name} purchased!`;
+              Alert.alert('Success! 🎉', msg);
               await loadData();
               await refreshUser(); // Update global coin state
             } catch (err: any) {
@@ -71,8 +75,13 @@ export default function ShopScreen() {
     );
   };
 
-  const getItemEmoji = (category: string) => {
-    switch (category) {
+  const getItemEmoji = (item: ShopItem) => {
+    if (item.key === 'custom_photo_avatar') return '📷';
+    // Emoji avatar items: name starts with the emoji e.g. "🤖 Robot"
+    if (item.key.startsWith('avatar_emoji_')) {
+      return [...item.name][0] ?? '🎭';
+    }
+    switch (item.category) {
       case 'avatar': return '🧑‍🎤';
       case 'theme': return '🎨';
       case 'booster': return '🚀';
@@ -126,7 +135,7 @@ export default function ShopScreen() {
                 return (
                   <View key={item.id} style={styles.itemCard}>
                     <View style={styles.itemHeader}>
-                      <Text style={styles.itemEmoji}>{getItemEmoji(item.category)}</Text>
+                      <Text style={styles.itemEmoji}>{getItemEmoji(item)}</Text>
                       {quantity > 0 && isConsumable && (
                         <View style={styles.badge}>
                           <Text style={styles.badgeText}>{quantity}</Text>

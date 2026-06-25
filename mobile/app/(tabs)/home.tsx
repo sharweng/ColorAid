@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuthStore } from '../../src/store/authStore';
@@ -59,6 +59,13 @@ export default function HomeScreen() {
   const xpForLevel = 500;
   const xpPercent = Math.min((xpProgress / xpForLevel) * 100, 100);
 
+  // Parse avatarConfig from user store
+  const avatarConfig = (() => {
+    try { return JSON.parse(user?.avatarConfig ?? '{}'); } catch { return {}; }
+  })();
+
+  const isPhotoAvatar = avatarConfig.type === 'photo' && avatarConfig.uri;
+
   return (
     <ScrollView
       style={styles.container}
@@ -76,7 +83,15 @@ export default function HomeScreen() {
           style={styles.avatar}
           accessibilityLabel="Go to profile"
         >
-          <Text style={styles.avatarEmoji}>🧑</Text>
+          {isPhotoAvatar ? (
+            <Image
+              source={{ uri: avatarConfig.uri }}
+              style={styles.avatarPhoto}
+              resizeMode="cover"
+            />
+          ) : (
+            <Text style={styles.avatarEmoji}>{avatarConfig.emoji ?? '🧑'}</Text>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -177,8 +192,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 2,
     borderColor: Colors.primaryLight,
+    overflow: 'hidden',
   },
   avatarEmoji: { fontSize: 24 },
+  avatarPhoto: { width: 48, height: 48, borderRadius: 24 },
   statsRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.md },
   statCard: {
     flex: 1,
