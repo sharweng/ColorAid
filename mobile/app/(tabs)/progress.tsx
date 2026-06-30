@@ -1,9 +1,11 @@
 import React, { useState, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, RefreshControl, ActivityIndicator,
-  TouchableOpacity, Modal, FlatList, SafeAreaView, Dimensions,
+  TouchableOpacity, Modal, FlatList, SafeAreaView, Dimensions, Alert,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { progressApi, achievementsApi, type Achievement, type ProgressReport } from '../../src/services/api';
+import { exportFullReportPDF, exportSessionsPDF, exportAssessmentsPDF } from '../../src/services/pdfReport';
 import { Colors, Typography, Spacing, Radius, Shadow } from '../../src/constants/theme';
 import { useAuthStore } from '../../src/store/authStore';
 import { useRouter } from 'expo-router';
@@ -13,7 +15,7 @@ import { achEmoji } from '../../src/components/AchievementToast';
 const SW = Dimensions.get('window').width;
 
 type SortOrder = 'latest' | 'earliest';
-type ChartTab = 'accuracy' | 'difficulty' | 'assessment';
+type ChartTab = 'accuracy' | 'difficulty';
 type GameFilter = 'all' | 'color_match' | 'hue_hunt' | 'shade_spectrum' | 'color_sort';
 
 const GAME_COLORS: Record<string, string> = {
@@ -202,7 +204,35 @@ export default function ProgressScreen() {
     }
   }
 
+  // ─── PDF Export helpers ────────────────────────────────────────────────
+
+  async function shareReport() {
+    if (!report) return;
+    try {
+      await exportFullReportPDF(report, allSessions, allAssessments);
+    } catch (e: any) {
+      Alert.alert('PDF Error', e?.message ?? 'Could not generate PDF.');
+    }
+  }
+
+  async function shareSessionsCSV() {
+    try {
+      await exportSessionsPDF(allSessions);
+    } catch (e: any) {
+      Alert.alert('PDF Error', e?.message ?? 'Could not generate PDF.');
+    }
+  }
+
+  async function shareAssessmentsCSV() {
+    try {
+      await exportAssessmentsPDF(allAssessments);
+    } catch (e: any) {
+      Alert.alert('PDF Error', e?.message ?? 'Could not generate PDF.');
+    }
+  }
+
   // useFocusEffect covers both initial mount and every subsequent focus
+
   useFocusEffect(
     useCallback(() => {
       load();
@@ -472,9 +502,20 @@ export default function ProgressScreen() {
         <SafeAreaView style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>📊 Progress Report</Text>
-            <TouchableOpacity onPress={() => setShowReport(false)}>
-              <Text style={styles.modalClose}>✕</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
+              {report && (
+                <TouchableOpacity
+                  style={styles.exportBtn}
+                  onPress={shareReport}
+                  accessibilityLabel="Download progress report as PDF"
+                >
+                  <Ionicons name="download-outline" size={20} color={Colors.primary} />
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity onPress={() => setShowReport(false)}>
+                <Text style={styles.modalClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.modalList, { gap: Spacing.md }]}>
@@ -568,6 +609,69 @@ export default function ProgressScreen() {
                         </View>
                       ))}
                     </View>
+                  </View>
+                )}
+
+                {/* Assessment score trend chart (moved from Game Performance) */}
+                {allAssessments.length > 0 && (
+                  <View style={styles.chartCard}>
+                    <Text style={styles.chartCardTitle}>Assessment Score Trend</Text>
+                    <Text style={styles.chartCardSub}>Correct plates % over time</Text>
+                    {assessmentScores.length >= 2
+                      ? <LineChart values={assessmentScores.map(a => a.value)} color={Colors.info} height={110} />
+                      : <Text style={emptyStyle}>Complete at least 2 assessments to see a trend</Text>}
+                  </View>
+                )}
+
+                {/* CVD diagnosis history */}
+                {allAssessments.length > 0 && (
+                  <View style={styles.chartCard}>
+                    <Text style={styles.chartCardTitle}>CVD Diagnosis History</Text>
+                    <Text style={styles.chartCardSub}>Results from all assessments</Text>
+                    {(() => {
+                      const counts: Record<string, number> = {};
+                      allAssessments.forEach(a => {
+                        const k = formatCvdType(a.cvdType);
+                        counts[k] = (counts[k] ?? 0) + 1;
+                      });
+                      const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+                      const total = entries.reduce((s, [, n]) => s + n, 0);
+                      return entries.length === 0 ? (
+                        <Text style={emptyStyle}>No assessments yet</Text>
+                      ) : (
+                        <View style={{ gap: Spacing.sm, marginTop: Spacing.sm }}>
+                          {entries.map(([type, count]) => (
+                            <View key={type}>
+                              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                                <Text style={{ fontSize: Typography.size.sm, color: Colors.textPrimary, fontWeight: '600' }}>{type}</Text>
+                                <Text style={{ fontSize: Typography.size.sm, color: Colors.info, fontWeight: '700' }}>
+                                  {count}× ({Math.round((count / total) * 100)}%)
+                                </Text>
+                              </View>
+                              <View style={{ height: 8, backgroundColor: Colors.surfaceAlt, borderRadius: 4, overflow: 'hidden' }}>
+                                <View style={{ width: `${(count / total) * 100}%` as any, height: '100%', backgroundColor: Colors.info, borderRadius: 4 }} />
+                              </View>
+                            </View>
+                          ))}
+                        </View>
+                      );
+                    })()}
+                  </View>
+                )}
+
+                {/* Assessment score breakdown */}
+                {assessmentScores.length > 0 && (
+                  <View style={styles.chartCard}>
+                    <Text style={styles.chartCardTitle}>Assessment Score Breakdown</Text>
+                    <Text style={styles.chartCardSub}>Score % per assessment (last 10)</Text>
+                    <BarChart
+                      data={assessmentScores}
+                      color={Colors.info}
+                      labelKey="label"
+                      valueKey="value"
+                      maxVal={100}
+                      height={100}
+                    />
                   </View>
                 )}
 
@@ -671,9 +775,14 @@ export default function ProgressScreen() {
         <SafeAreaView style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>All Training Sessions</Text>
-            <TouchableOpacity onPress={() => setShowAllSessions(false)}>
-              <Text style={styles.modalClose}>✕</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
+              <TouchableOpacity style={styles.exportBtn} onPress={shareSessionsCSV} accessibilityLabel="Download sessions as PDF">
+                <Ionicons name="download-outline" size={20} color={Colors.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setShowAllSessions(false)}>
+                <Text style={styles.modalClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           <View style={styles.filterRow}>
@@ -734,23 +843,22 @@ export default function ProgressScreen() {
         </SafeAreaView>
       </Modal>
 
-      {/* ── CHARTS MODAL ─────────────────────────────────────────────────── */}
+      {/* ── GAME PERFORMANCE ANALYTICS MODAL ───────────────────────────── */}
       <Modal visible={showCharts} animationType="slide" presentationStyle="pageSheet">
         <SafeAreaView style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Analytics</Text>
+            <Text style={[styles.modalTitle, { fontSize: Typography.size.md }]}>Game Performance Analytics</Text>
             <TouchableOpacity onPress={() => setShowCharts(false)}>
               <Text style={styles.modalClose}>✕</Text>
             </TouchableOpacity>
           </View>
 
-          {/* Chart tab selector */}
+          {/* Chart tab selector: Accuracy | Difficulty only */}
           <ScrollView horizontal showsHorizontalScrollIndicator={false}
             style={styles.filterScrollRow} contentContainerStyle={{ gap: Spacing.xs, paddingHorizontal: Spacing.base, alignItems: 'center' }}>
             {([
               { id: 'accuracy' as ChartTab, label: '📈 Accuracy Trend' },
               { id: 'difficulty' as ChartTab, label: '🎯 Difficulty' },
-              { id: 'assessment' as ChartTab, label: '👁️ Assessments' },
             ]).map(t => (
               <TouchableOpacity key={t.id}
                 style={[styles.filterBtn, chartTab === t.id && styles.filterBtnOn]}
@@ -881,80 +989,23 @@ export default function ProgressScreen() {
                 </View>
               </>
             )}
-
-            {/* Assessment chart */}
-            {chartTab === 'assessment' && (
-              <>
-                <View style={styles.chartCard}>
-                  <Text style={styles.chartCardTitle}>Assessment Score Trend</Text>
-                  <Text style={styles.chartCardSub}>Correct plates % over time</Text>
-                  {assessmentScores.length >= 2
-                    ? <LineChart values={assessmentScores.map(a => a.value)} color={Colors.info} height={110} />
-                    : <Text style={emptyStyle}>Complete at least 2 assessments to see a trend</Text>}
-                </View>
-
-                {/* CVD type distribution */}
-                <View style={styles.chartCard}>
-                  <Text style={styles.chartCardTitle}>CVD Diagnosis History</Text>
-                  <Text style={styles.chartCardSub}>Results from all assessments</Text>
-                  {(() => {
-                    const counts: Record<string, number> = {};
-                    (progressData?.assessments ?? []).forEach(a => {
-                      const k = formatCvdType(a.cvdType);
-                      counts[k] = (counts[k] ?? 0) + 1;
-                    });
-                    const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-                    const total = entries.reduce((s, [, n]) => s + n, 0);
-                    return entries.length === 0 ? (
-                      <Text style={emptyStyle}>No assessments yet</Text>
-                    ) : (
-                      <View style={{ gap: Spacing.sm, marginTop: Spacing.sm }}>
-                        {entries.map(([type, count]) => (
-                          <View key={type}>
-                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-                              <Text style={{ fontSize: Typography.size.sm, color: Colors.textPrimary, fontWeight: '600' }}>{type}</Text>
-                              <Text style={{ fontSize: Typography.size.sm, color: Colors.info, fontWeight: '700' }}>
-                                {count}× ({Math.round((count / total) * 100)}%)
-                              </Text>
-                            </View>
-                            <View style={{ height: 8, backgroundColor: Colors.surfaceAlt, borderRadius: 4, overflow: 'hidden' }}>
-                              <View style={{ width: `${(count / total) * 100}%` as any, height: '100%', backgroundColor: Colors.info, borderRadius: 4 }} />
-                            </View>
-                          </View>
-                        ))}
-                      </View>
-                    );
-                  })()}
-                </View>
-
-                {/* Assessment score details */}
-                <View style={styles.chartCard}>
-                  <Text style={styles.chartCardTitle}>Score Breakdown</Text>
-                  {assessmentScores.length > 0 ? (
-                    <BarChart
-                      data={assessmentScores}
-                      color={Colors.info}
-                      labelKey="label"
-                      valueKey="value"
-                      maxVal={100}
-                      height={100}
-                    />
-                  ) : <Text style={emptyStyle}>No assessments yet</Text>}
-                </View>
-              </>
-            )}
           </ScrollView>
         </SafeAreaView>
       </Modal>
 
-      {/* ── ALL ASSESSMENTS MODAL ────────────────────────────────────────── */}
+      {/* ── ALL ASSESSMENTS MODAL ───────────────────────────────────────── */}
       <Modal visible={showAllAssessments} animationType="slide" presentationStyle="pageSheet">
         <SafeAreaView style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Assessment History</Text>
-            <TouchableOpacity onPress={() => setShowAllAssessments(false)}>
-              <Text style={styles.modalClose}>✕</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
+              <TouchableOpacity style={styles.exportBtn} onPress={shareAssessmentsCSV} accessibilityLabel="Download assessment history as PDF">
+                <Ionicons name="download-outline" size={20} color={Colors.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setShowAllAssessments(false)}>
+                <Text style={styles.modalClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
           </View>
           <View style={styles.filterRow}>
             <Text style={styles.filterLabel}>Sort by:</Text>
@@ -1168,4 +1219,16 @@ const styles = StyleSheet.create({
   reportMetric: { flex: 1, backgroundColor: Colors.surfaceAlt, borderRadius: Radius.md, padding: Spacing.sm, alignItems: 'center' },
   reportMetricVal: { fontSize: Typography.size.lg, fontWeight: '800', color: Colors.primary },
   reportMetricLbl: { fontSize: Typography.size.xs, color: Colors.textMuted, marginTop: 2, textAlign: 'center' },
+
+  // Export button (in modal headers) — round icon button
+  exportBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.primaryBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Colors.primaryLight,
+  },
 });
