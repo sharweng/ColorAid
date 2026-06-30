@@ -10,7 +10,7 @@ import {
   Animated,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { assessmentApi, type PlateResponse, type AssessmentResult } from '../src/services/api';
+import { assessmentApi, trainingApi, type PlateResponse, type AssessmentResult, type RecommendedGame } from '../src/services/api';
 import { Colors, Typography, Spacing, Radius, Shadow, CvdTypeColors, SeverityColors } from '../src/constants/theme';
 import IshiharaPlate from '../src/components/IshiharaPlate';
 import { showAchievementToasts } from '../src/components/AchievementToast';
@@ -233,8 +233,23 @@ function ResultScreen({
   rewards: { xpEarned: number; coinsEarned: number } | null;
   onDone: () => void;
 }) {
+  const router = useRouter();
   const cvdColor = CvdTypeColors[result.cvdType] ?? Colors.primary;
   const severityColor = SeverityColors[result.severity] ?? Colors.warning;
+  const [recData, setRecData] = useState<{
+    recommendations: RecommendedGame[];
+  } | null>(null);
+
+  useEffect(() => {
+    trainingApi.getRecommended().then(data => setRecData(data)).catch(() => {});
+  }, []);
+
+  const GAME_INFO: Record<string, { emoji: string; label: string; color: string }> = {
+    color_match:    { emoji: '🎨', label: 'Color Match',    color: Colors.primary },
+    hue_hunt:       { emoji: '🔍', label: 'Hue Hunt',       color: Colors.accent },
+    shade_spectrum: { emoji: '🌈', label: 'Shade Spectrum', color: '#FF9500' },
+    color_sort:     { emoji: '🗂️', label: 'Color Sort',     color: '#FF6B6B' },
+  };
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: Colors.background }} contentContainerStyle={{ padding: Spacing.base, paddingBottom: 80 }}>
@@ -294,6 +309,50 @@ function ResultScreen({
         ))}
       </View>
 
+      {/* Recommended Training Games */}
+      {recData && recData.recommendations.length > 0 && (
+        <View style={{ backgroundColor: Colors.surface, borderRadius: Radius.lg, padding: Spacing.md, marginBottom: Spacing.md, ...Shadow.sm }}>
+          <Text style={{ fontWeight: '700', color: Colors.textPrimary, marginBottom: Spacing.xs }}>Start Training Now</Text>
+          <Text style={{ fontSize: Typography.size.sm, color: Colors.textSecondary, marginBottom: Spacing.md, lineHeight: 20 }}>
+            Based on your assessment, these exercises will help most:
+          </Text>
+          {recData.recommendations.map((rec) => {
+            const info = GAME_INFO[rec.gameType];
+            if (!info) return null;
+            return (
+              <TouchableOpacity
+                key={rec.gameType}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: Colors.surfaceAlt,
+                  borderRadius: Radius.md,
+                  padding: Spacing.md,
+                  marginBottom: Spacing.sm,
+                  borderLeftWidth: 3,
+                  borderLeftColor: info.color,
+                }}
+                onPress={() => {
+                  onDone();
+                  router.push({ pathname: '/training/[gameType]', params: { gameType: rec.gameType } });
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`Start ${info.label} training`}
+              >
+                <Text style={{ fontSize: 24, marginRight: Spacing.md }}>{info.emoji}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontWeight: '700', color: Colors.textPrimary, fontSize: Typography.size.sm }}>{info.label}</Text>
+                  <Text style={{ fontSize: Typography.size.xs, color: Colors.textSecondary, marginTop: 2 }}>{rec.reason}</Text>
+                </View>
+                <View style={{ backgroundColor: info.color + '22', borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2 }}>
+                  <Text style={{ fontSize: Typography.size.xs, fontWeight: '700', color: info.color }}>Lvl {rec.suggestedDifficulty}</Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
+
       {/* Rewards */}
       {rewards && (
         <View style={{ backgroundColor: Colors.primaryBg, borderRadius: Radius.lg, padding: Spacing.md, marginBottom: Spacing.md, flexDirection: 'row', gap: Spacing.md }}>
@@ -310,6 +369,18 @@ function ResultScreen({
           </View>
         </View>
       )}
+
+      {/* View Full Report */}
+      <TouchableOpacity
+        style={{ backgroundColor: Colors.surfaceAlt, borderRadius: Radius.lg, padding: Spacing.md, alignItems: 'center', marginBottom: Spacing.sm, borderWidth: 1, borderColor: Colors.border }}
+        onPress={() => {
+          onDone();
+          router.push('/(tabs)/progress');
+        }}
+        accessibilityRole="button"
+      >
+        <Text style={{ color: Colors.primary, fontSize: Typography.size.sm, fontWeight: '700' }}>📊 View Full Progress Report</Text>
+      </TouchableOpacity>
 
       <TouchableOpacity
         style={{ backgroundColor: Colors.primary, borderRadius: Radius.lg, padding: Spacing.lg, alignItems: 'center', ...Shadow.md }}

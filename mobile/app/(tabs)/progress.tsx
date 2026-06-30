@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView, RefreshControl, ActivityIndicator,
   TouchableOpacity, Modal, FlatList, SafeAreaView, Dimensions,
 } from 'react-native';
-import { progressApi, achievementsApi, type Achievement } from '../../src/services/api';
+import { progressApi, achievementsApi, type Achievement, type ProgressReport } from '../../src/services/api';
 import { Colors, Typography, Spacing, Radius, Shadow } from '../../src/constants/theme';
 import { useAuthStore } from '../../src/store/authStore';
 import { useRouter } from 'expo-router';
@@ -170,6 +170,8 @@ export default function ProgressScreen() {
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [report, setReport] = useState<ProgressReport | null>(null);
+  const [showReport, setShowReport] = useState(false);
 
   // Modal/chart state
   const [showAllSessions, setShowAllSessions] = useState(false);
@@ -184,12 +186,14 @@ export default function ProgressScreen() {
 
   async function load() {
     try {
-      const [prog, ach] = await Promise.all([
+      const [prog, ach, rep] = await Promise.all([
         progressApi.get(),
         achievementsApi.getAll(),
+        progressApi.getReport(),
       ]);
       setProgressData(prog as any);
       setAchievements(ach);
+      setReport(rep);
     } catch {
       // silent
     } finally {
@@ -262,6 +266,73 @@ export default function ProgressScreen() {
       contentContainerStyle={styles.content}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}
     >
+      {/* ── MY REPORT CARD ───────────────────────────────────────────── */}
+      {report && (
+        <View style={[styles.card, { borderLeftWidth: 4, borderLeftColor: Colors.primary }]}>
+          <View style={styles.cardHeaderRow}>
+            <View>
+              <Text style={styles.cardTitle}>My Report</Text>
+              {report.assessment?.cvdType && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginTop: -Spacing.xs, marginBottom: Spacing.xs }}>
+                  <View style={{ backgroundColor: Colors.primaryBg, borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2, borderWidth: 1, borderColor: Colors.primaryLight }}>
+                    <Text style={{ fontSize: Typography.size.xs, color: Colors.primary, fontWeight: '700', textTransform: 'capitalize' }}>
+                      {report.assessment.cvdType.replace(/([A-Z])/g, ' $1')}
+                    </Text>
+                  </View>
+                  <View style={{ backgroundColor: Colors.surfaceAlt, borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2 }}>
+                    <Text style={{ fontSize: Typography.size.xs, color: Colors.textSecondary, fontWeight: '600', textTransform: 'capitalize' }}>
+                      {report.performanceLevel}
+                    </Text>
+                  </View>
+                </View>
+              )}
+            </View>
+            <TouchableOpacity
+              style={{ backgroundColor: Colors.primary, borderRadius: Radius.md, paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs }}
+              onPress={() => setShowReport(true)}
+            >
+              <Text style={{ color: Colors.textInverted, fontWeight: '700', fontSize: Typography.size.xs }}>Full Report</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Key metrics row */}
+          <View style={{ flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.sm }}>
+            <View style={styles.reportMetric}>
+              <Text style={styles.reportMetricVal}>{report.training.totalSessions}</Text>
+              <Text style={styles.reportMetricLbl}>Sessions</Text>
+            </View>
+            <View style={styles.reportMetric}>
+              <Text style={styles.reportMetricVal}>{report.training.overallAvgAccuracy}%</Text>
+              <Text style={styles.reportMetricLbl}>Avg Accuracy</Text>
+            </View>
+            <View style={styles.reportMetric}>
+              <Text style={[styles.reportMetricVal, { color: report.training.improvementPct >= 0 ? Colors.success : Colors.error }]}>
+                {report.training.improvementPct >= 0 ? '+' : ''}{report.training.improvementPct}%
+              </Text>
+              <Text style={styles.reportMetricLbl}>Improvement</Text>
+            </View>
+          </View>
+
+          {/* Weekly goal bar */}
+          <View style={{ marginBottom: Spacing.xs }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+              <Text style={{ fontSize: Typography.size.xs, color: Colors.textSecondary, fontWeight: '600' }}>Weekly Goal</Text>
+              <Text style={{ fontSize: Typography.size.xs, color: Colors.primary, fontWeight: '700' }}>
+                {report.training.sessionsThisWeek}/{report.training.weeklyGoal} sessions
+              </Text>
+            </View>
+            <View style={{ height: 8, backgroundColor: Colors.border, borderRadius: Radius.full, overflow: 'hidden' }}>
+              <View style={{
+                height: '100%',
+                backgroundColor: Colors.primary,
+                borderRadius: Radius.full,
+                width: `${Math.min((report.training.sessionsThisWeek / report.training.weeklyGoal) * 100, 100)}%` as any,
+              }} />
+            </View>
+          </View>
+        </View>
+      )}
+
       {/* Weekly Summary */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>This Week</Text>
@@ -395,6 +466,205 @@ export default function ProgressScreen() {
           </View>
         </View>
       )}
+
+      {/* ── FULL REPORT MODAL ─────────────────────────────────────────── */}
+      <Modal visible={showReport} animationType="slide" presentationStyle="pageSheet">
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>📊 Progress Report</Text>
+            <TouchableOpacity onPress={() => setShowReport(false)}>
+              <Text style={styles.modalClose}>✕</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.modalList, { gap: Spacing.md }]}>
+            {report ? (
+              <>
+                {/* Report header */}
+                <View style={styles.chartCard}>
+                  <Text style={styles.chartCardTitle}>Performance Summary</Text>
+                  <Text style={styles.chartCardSub}>Generated {new Date(report.generatedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</Text>
+
+                  <View style={{ flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.sm }}>
+                    <View style={{ backgroundColor: Colors.primaryBg, borderRadius: Radius.full, paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs, borderWidth: 1, borderColor: Colors.primaryLight }}>
+                      <Text style={{ color: Colors.primary, fontWeight: '800', fontSize: Typography.size.sm }}>Level {report.user.level}</Text>
+                    </View>
+                    <View style={{ backgroundColor: Colors.surfaceAlt, borderRadius: Radius.full, paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs }}>
+                      <Text style={{ color: Colors.textSecondary, fontWeight: '700', fontSize: Typography.size.sm }}>{report.performanceLevel}</Text>
+                    </View>
+                    {report.assessment && (
+                      <View style={{ backgroundColor: Colors.primaryBg, borderRadius: Radius.full, paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs, borderWidth: 1, borderColor: Colors.primaryLight }}>
+                        <Text style={{ color: Colors.primary, fontWeight: '700', fontSize: Typography.size.sm, textTransform: 'capitalize' }}>
+                          {report.assessment.cvdType.replace(/([A-Z])/g, ' $1')}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Big stats */}
+                  <View style={{ flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.md }}>
+                    {[
+                      { label: 'Total Sessions', value: String(report.training.totalSessions) },
+                      { label: 'Avg Accuracy', value: `${report.training.overallAvgAccuracy}%` },
+                      { label: 'Streak', value: `${report.user.streakDays}d 🔥` },
+                    ].map(s => (
+                      <View key={s.label} style={{ flex: 1, backgroundColor: Colors.surfaceAlt, borderRadius: Radius.md, padding: Spacing.sm, alignItems: 'center' }}>
+                        <Text style={{ fontSize: Typography.size.lg, fontWeight: '800', color: Colors.primary }}>{s.value}</Text>
+                        <Text style={{ fontSize: Typography.size.xs, color: Colors.textMuted, textAlign: 'center', marginTop: 2 }}>{s.label}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Improvement trend */}
+                <View style={styles.chartCard}>
+                  <Text style={styles.chartCardTitle}>Improvement Trend</Text>
+                  <Text style={styles.chartCardSub}>Comparing your first 5 sessions vs. most recent 5</Text>
+                  {report.training.totalSessions >= 5 ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.md, marginTop: Spacing.sm }}>
+                      <View style={{ flex: 1, alignItems: 'center', backgroundColor: Colors.surfaceAlt, borderRadius: Radius.md, padding: Spacing.md }}>
+                        <Text style={{ fontSize: 28, marginBottom: 4 }}>{report.training.improvementPct >= 0 ? '📈' : '📉'}</Text>
+                        <Text style={{ fontSize: Typography.size.xl, fontWeight: '800', color: report.training.improvementPct >= 0 ? Colors.success : Colors.error }}>
+                          {report.training.improvementPct >= 0 ? '+' : ''}{report.training.improvementPct}%
+                        </Text>
+                        <Text style={{ fontSize: Typography.size.xs, color: Colors.textMuted, textAlign: 'center', marginTop: 2 }}>accuracy change</Text>
+                      </View>
+                      <View style={{ flex: 2 }}>
+                        <Text style={{ fontSize: Typography.size.sm, color: Colors.textSecondary, lineHeight: 20 }}>
+                          {report.training.improvementPct > 10
+                            ? 'Excellent progress! Your accuracy has improved significantly.'
+                            : report.training.improvementPct > 0
+                            ? 'Good progress! You\'re steadily improving your color vision skills.'
+                            : report.training.improvementPct === 0
+                            ? 'Your accuracy is consistent. Try increasing difficulty to grow further.'
+                            : 'A dip can happen. Keep training consistently to bounce back.'}
+                        </Text>
+                      </View>
+                    </View>
+                  ) : (
+                    <Text style={{ color: Colors.textMuted, fontSize: Typography.size.sm, marginTop: Spacing.sm }}>
+                      Complete at least 5 training sessions to see your improvement trend.
+                    </Text>
+                  )}
+                </View>
+
+                {/* Latest assessment */}
+                {report.assessment && (
+                  <View style={styles.chartCard}>
+                    <Text style={styles.chartCardTitle}>Latest Assessment</Text>
+                    <Text style={styles.chartCardSub}>
+                      {new Date(report.assessment.completedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                    </Text>
+                    <View style={{ gap: Spacing.sm, marginTop: Spacing.sm }}>
+                      {[
+                        { label: 'Diagnosis', value: report.assessment.cvdType.replace(/([A-Z])/g, ' $1'), cap: true },
+                        { label: 'Severity', value: report.assessment.severity, cap: true },
+                        { label: 'Confidence', value: `${Math.round(report.assessment.confidence * 100)}%`, cap: false },
+                        { label: 'Score', value: report.assessment.scorePct !== null ? `${report.assessment.scorePct}%` : 'N/A', cap: false },
+                      ].map(row => (
+                        <View key={row.label} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: Spacing.xs, borderBottomWidth: 1, borderBottomColor: Colors.border }}>
+                          <Text style={{ color: Colors.textSecondary, fontSize: Typography.size.sm }}>{row.label}</Text>
+                          <Text style={{ color: Colors.textPrimary, fontWeight: '700', fontSize: Typography.size.sm, textTransform: row.cap ? 'capitalize' : 'none' }}>{row.value}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
+
+                {/* Per-game breakdown */}
+                {Object.keys(report.training.gameSummary).length > 0 && (
+                  <View style={styles.chartCard}>
+                    <Text style={styles.chartCardTitle}>Game Breakdown</Text>
+                    <Text style={styles.chartCardSub}>Performance per training type</Text>
+                    <View style={{ gap: Spacing.sm, marginTop: Spacing.sm }}>
+                      {Object.entries(report.training.gameSummary).map(([game, stats]) => {
+                        const color = GAME_COLORS[game] ?? Colors.primary;
+                        return (
+                          <View key={game}>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                              <Text style={{ fontSize: Typography.size.sm, color: Colors.textPrimary, fontWeight: '600' }}>
+                                {GAME_EMOJIS[game] ?? '🎮'} {GAME_LABELS[game] ?? game}
+                              </Text>
+                              <Text style={{ fontSize: Typography.size.xs, color: Colors.textMuted }}>
+                                {stats.count} sessions · Best Lvl {stats.bestDifficulty}
+                              </Text>
+                            </View>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
+                              <View style={{ flex: 1, height: 8, backgroundColor: Colors.surfaceAlt, borderRadius: 4, overflow: 'hidden' }}>
+                                <View style={{ width: `${stats.avgAccuracy}%` as any, height: '100%', backgroundColor: color, borderRadius: 4 }} />
+                              </View>
+                              <Text style={{ fontSize: Typography.size.xs, color: color, fontWeight: '700', minWidth: 36, textAlign: 'right' }}>{stats.avgAccuracy}%</Text>
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  </View>
+                )}
+
+                {/* Weekly goal */}
+                <View style={styles.chartCard}>
+                  <Text style={styles.chartCardTitle}>Weekly Training Goal</Text>
+                  <Text style={styles.chartCardSub}>Target: {report.training.weeklyGoal} sessions per week</Text>
+                  <View style={{ marginTop: Spacing.sm }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.xs }}>
+                      <Text style={{ fontSize: Typography.size.sm, color: Colors.textSecondary }}>{report.training.sessionsThisWeek} completed this week</Text>
+                      <Text style={{ fontSize: Typography.size.sm, color: Colors.primary, fontWeight: '700' }}>
+                        {Math.round(Math.min((report.training.sessionsThisWeek / report.training.weeklyGoal) * 100, 100))}%
+                      </Text>
+                    </View>
+                    <View style={{ height: 12, backgroundColor: Colors.border, borderRadius: Radius.full, overflow: 'hidden' }}>
+                      <View style={{
+                        height: '100%', backgroundColor: Colors.primary, borderRadius: Radius.full,
+                        width: `${Math.min((report.training.sessionsThisWeek / report.training.weeklyGoal) * 100, 100)}%` as any,
+                      }} />
+                    </View>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: Spacing.xs }}>
+                      {Array.from({ length: report.training.weeklyGoal }, (_, i) => (
+                        <View key={i} style={{
+                          width: 28, height: 28, borderRadius: 14,
+                          backgroundColor: i < report.training.sessionsThisWeek ? Colors.primary : Colors.surfaceAlt,
+                          alignItems: 'center', justifyContent: 'center',
+                        }}>
+                          <Text style={{ fontSize: 12 }}>{i < report.training.sessionsThisWeek ? '✓' : ''}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                </View>
+
+                {/* Recommended activities */}
+                {report.recommendedActivities.length > 0 && (
+                  <View style={styles.chartCard}>
+                    <Text style={styles.chartCardTitle}>Recommended Activities</Text>
+                    <Text style={styles.chartCardSub}>Personalized for your CVD profile</Text>
+                    {report.recommendedActivities.map((act, idx) => {
+                      const color = GAME_COLORS[act.gameType] ?? Colors.primary;
+                      return (
+                        <View key={idx} style={{ backgroundColor: Colors.surfaceAlt, borderRadius: Radius.md, padding: Spacing.md, marginTop: Spacing.sm, borderLeftWidth: 3, borderLeftColor: color }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.xs }}>
+                            <Text style={{ fontSize: 20, marginRight: Spacing.sm }}>{GAME_EMOJIS[act.gameType] ?? '🎮'}</Text>
+                            <Text style={{ fontWeight: '700', color: Colors.textPrimary, fontSize: Typography.size.sm, flex: 1 }}>{GAME_LABELS[act.gameType] ?? act.gameType}</Text>
+                          </View>
+                          <Text style={{ fontSize: Typography.size.sm, color: Colors.textSecondary, marginBottom: Spacing.xs }}>{act.reason}</Text>
+                          {act.tips.map((tip, ti) => (
+                            <View key={ti} style={{ flexDirection: 'row', alignItems: 'flex-start', marginTop: 2 }}>
+                              <Text style={{ color: color, marginRight: Spacing.xs, fontWeight: '700' }}>•</Text>
+                              <Text style={{ flex: 1, fontSize: Typography.size.xs, color: Colors.textSecondary, lineHeight: 18 }}>{tip}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      );
+                    })}
+                  </View>
+                )}
+              </>
+            ) : (
+              <Text style={{ color: Colors.textMuted, textAlign: 'center', padding: Spacing.xl }}>No report data available yet. Complete an assessment and some training sessions!</Text>
+            )}
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
 
       {/* ── ALL SESSIONS MODAL ───────────────────────────────────────────── */}
       <Modal visible={showAllSessions} animationType="slide" presentationStyle="pageSheet">
@@ -893,4 +1163,9 @@ const styles = StyleSheet.create({
   achRewards: { alignItems: 'flex-end', gap: 2 },
   achRewardXp: { color: Colors.primary, fontSize: Typography.size.xs, fontWeight: '700' },
   achRewardCoin: { color: Colors.coin, fontSize: Typography.size.xs, fontWeight: '700' },
+
+  // My Report card
+  reportMetric: { flex: 1, backgroundColor: Colors.surfaceAlt, borderRadius: Radius.md, padding: Spacing.sm, alignItems: 'center' },
+  reportMetricVal: { fontSize: Typography.size.lg, fontWeight: '800', color: Colors.primary },
+  reportMetricLbl: { fontSize: Typography.size.xs, color: Colors.textMuted, marginTop: 2, textAlign: 'center' },
 });

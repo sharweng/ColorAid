@@ -1,10 +1,11 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuthStore } from '../../src/store/authStore';
 import { Colors, Typography, Spacing, Radius, Shadow } from '../../src/constants/theme';
 import { CvdTypeColors } from '../../src/constants/theme';
+import { trainingApi, type RecommendedGame } from '../../src/services/api';
 
 const GAME_CARDS = [
   {
@@ -41,17 +42,34 @@ export default function HomeScreen() {
   const router = useRouter();
   const { user, refreshUser } = useAuthStore();
   const [refreshing, setRefreshing] = React.useState(false);
+  const [recommendations, setRecommendations] = useState<{
+    cvdType: string;
+    recommendations: RecommendedGame[];
+    performanceSummary: string;
+    sessionsThisWeek: number;
+    weeklyGoal: number;
+  } | null>(null);
+
+  async function loadRecommendations() {
+    try {
+      const data = await trainingApi.getRecommended();
+      setRecommendations(data);
+    } catch {
+      // silent — recommendations are optional
+    }
+  }
 
   // Refresh user stats every time this tab comes into focus
   useFocusEffect(
     useCallback(() => {
       refreshUser();
+      loadRecommendations();
     }, [])
   );
 
   async function onRefresh() {
     setRefreshing(true);
-    await refreshUser();
+    await Promise.all([refreshUser(), loadRecommendations()]);
     setRefreshing(false);
   }
 
@@ -173,6 +191,67 @@ export default function HomeScreen() {
           </TouchableOpacity>
         ))}
       </View>
+
+      {/* Recommended for You */}
+      {recommendations && recommendations.recommendations.length > 0 && (
+        <View style={styles.recSection}>
+          <View style={styles.recHeader}>
+            <Text style={styles.sectionTitle}>Recommended for You</Text>
+            {recommendations.cvdType !== 'normal' && (
+              <View style={styles.cvdBadge}>
+                <Text style={styles.cvdBadgeText}>
+                  {recommendations.cvdType.replace(/([A-Z])/g, ' $1')}
+                </Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.recSummary}>{recommendations.performanceSummary}</Text>
+
+          {/* Weekly goal bar */}
+          <View style={styles.weeklyGoalRow}>
+            <Text style={styles.weeklyGoalLabel}>
+              This week: {recommendations.sessionsThisWeek}/{recommendations.weeklyGoal} sessions
+            </Text>
+            <View style={styles.weeklyGoalBar}>
+              <View
+                style={[
+                  styles.weeklyGoalFill,
+                  { width: `${Math.min((recommendations.sessionsThisWeek / recommendations.weeklyGoal) * 100, 100)}%` as any },
+                ]}
+              />
+            </View>
+          </View>
+
+          {recommendations.recommendations.map((rec) => {
+            const game = GAME_CARDS.find(g => g.id === rec.gameType);
+            if (!game) return null;
+            return (
+              <TouchableOpacity
+                key={rec.gameType}
+                style={[styles.recCard, { borderLeftColor: game.color }]}
+                onPress={() => router.push({ pathname: '/training/[gameType]', params: { gameType: rec.gameType } })}
+                accessibilityRole="button"
+                accessibilityLabel={`Play recommended ${game.title}`}
+              >
+                <Text style={styles.recEmoji}>{game.emoji}</Text>
+                <View style={{ flex: 1 }}>
+                  <View style={styles.recCardTitleRow}>
+                    <Text style={styles.recCardTitle}>{game.title}</Text>
+                    <View style={[styles.diffBadge, { backgroundColor: game.color + '22' }]}>
+                      <Text style={[styles.diffBadgeText, { color: game.color }]}>
+                        Lvl {rec.suggestedDifficulty}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={styles.recReason}>{rec.reason}</Text>
+                  <Text style={styles.recSessions}>{rec.sessionsCompleted} sessions completed</Text>
+                </View>
+                <Text style={[styles.recArrow, { color: game.color }]}>→</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
     </ScrollView>
   );
 }
@@ -262,4 +341,40 @@ const styles = StyleSheet.create({
   gameEmoji: { fontSize: 28, marginBottom: Spacing.xs },
   gameTitle: { fontSize: Typography.size.md, fontWeight: '700', color: Colors.textPrimary, marginBottom: 4 },
   gameDescription: { fontSize: Typography.size.xs, color: Colors.textSecondary, lineHeight: 16 },
+
+  // Recommendations
+  recSection: { marginTop: Spacing.md },
+  recHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.xs },
+  cvdBadge: {
+    backgroundColor: Colors.primaryBg,
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: Colors.primaryLight,
+  },
+  cvdBadgeText: { fontSize: Typography.size.xs, color: Colors.primary, fontWeight: '700', textTransform: 'capitalize' },
+  recSummary: { fontSize: Typography.size.sm, color: Colors.textSecondary, marginBottom: Spacing.sm, lineHeight: 20 },
+  weeklyGoalRow: { marginBottom: Spacing.md },
+  weeklyGoalLabel: { fontSize: Typography.size.xs, color: Colors.textMuted, marginBottom: 4 },
+  weeklyGoalBar: { height: 6, backgroundColor: Colors.border, borderRadius: Radius.full, overflow: 'hidden' },
+  weeklyGoalFill: { height: '100%', backgroundColor: Colors.accent, borderRadius: Radius.full },
+  recCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    borderLeftWidth: 4,
+    ...Shadow.sm,
+  },
+  recEmoji: { fontSize: 28, marginRight: Spacing.md },
+  recCardTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 },
+  recCardTitle: { fontSize: Typography.size.md, fontWeight: '700', color: Colors.textPrimary, flex: 1 },
+  diffBadge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2, marginLeft: Spacing.xs },
+  diffBadgeText: { fontSize: Typography.size.xs, fontWeight: '700' },
+  recReason: { fontSize: Typography.size.sm, color: Colors.textSecondary, marginTop: 2 },
+  recSessions: { fontSize: Typography.size.xs, color: Colors.textMuted, marginTop: 2 },
+  recArrow: { fontSize: 18, fontWeight: '700', marginLeft: Spacing.sm },
 });

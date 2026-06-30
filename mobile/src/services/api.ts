@@ -215,6 +215,7 @@ export interface RecommendedGame {
   gameType: GameType;
   reason: string;
   suggestedDifficulty: number;
+  sessionsCompleted: number;
 }
 
 export const trainingApi = {
@@ -234,7 +235,16 @@ export const trainingApi = {
     apiFetch<SessionCompleteResponse[]>(`/training/sessions/history${gameType ? `?gameType=${gameType}` : ''}`),
 
   getRecommended: () =>
-    apiFetch<{ cvdType: string; recommendations: RecommendedGame[] }>('/training/recommended'),
+    apiFetch<{
+      cvdType: string;
+      recommendations: RecommendedGame[];
+      performanceSummary: string;
+      improvementPct: number;
+      overallAvgAccuracy: number;
+      totalSessions: number;
+      sessionsThisWeek: number;
+      weeklyGoal: number;
+    }>('/training/recommended'),
 
   getStats: () =>
     apiFetch<{
@@ -285,6 +295,31 @@ export const achievementsApi = {
 
 // ─── Progress API ─────────────────────────────────────────────────────────────
 
+export interface ProgressReport {
+  generatedAt: string;
+  user: { totalXp: number; level: number; coins: number; streakDays: number; username: string };
+  performanceLevel: 'Beginner' | 'Developing' | 'Intermediate' | 'Advanced';
+  assessment: {
+    id: string;
+    completedAt: string;
+    cvdType: string;
+    severity: string;
+    confidence: number;
+    correctPlates: number;
+    totalPlates: number;
+    scorePct: number | null;
+  } | null;
+  training: {
+    totalSessions: number;
+    overallAvgAccuracy: number;
+    improvementPct: number;
+    gameSummary: Record<string, { count: number; avgAccuracy: number; bestDifficulty: number }>;
+    sessionsThisWeek: number;
+    weeklyGoal: number;
+  };
+  recommendedActivities: { gameType: string; reason: string; tips: string[] }[];
+}
+
 export const progressApi = {
   get: () =>
     apiFetch<{
@@ -293,6 +328,8 @@ export const progressApi = {
       trainingSessions: unknown[];
       recentActivity: { sessionsLast7Days: number; avgAccuracyLast7Days: number };
     }>('/progress'),
+
+  getReport: () => apiFetch<ProgressReport>('/progress/report'),
 };
 
 // ─── Shop API ─────────────────────────────────────────────────────────────────
