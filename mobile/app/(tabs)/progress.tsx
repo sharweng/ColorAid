@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { progressApi, achievementsApi, type Achievement, type ProgressReport } from '../../src/services/api';
-import { exportFullReportPDF, exportSessionsPDF, exportAssessmentsPDF } from '../../src/services/pdfReport';
+import { exportFullReportPDF, exportSessionsPDF, exportAssessmentsPDF, exportGamePerformancePDF } from '../../src/services/pdfReport';
 import { Colors, Typography, Spacing, Radius, Shadow } from '../../src/constants/theme';
 import { useAuthStore } from '../../src/store/authStore';
 import { useRouter } from 'expo-router';
@@ -226,6 +226,14 @@ export default function ProgressScreen() {
   async function shareAssessmentsCSV() {
     try {
       await exportAssessmentsPDF(allAssessments);
+    } catch (e: any) {
+      Alert.alert('PDF Error', e?.message ?? 'Could not generate PDF.');
+    }
+  }
+
+  async function shareGamePerformance() {
+    try {
+      await exportGamePerformancePDF(allSessions);
     } catch (e: any) {
       Alert.alert('PDF Error', e?.message ?? 'Could not generate PDF.');
     }
@@ -848,9 +856,14 @@ export default function ProgressScreen() {
         <SafeAreaView style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <Text style={[styles.modalTitle, { fontSize: Typography.size.md }]}>Game Performance Analytics</Text>
-            <TouchableOpacity onPress={() => setShowCharts(false)}>
-              <Text style={styles.modalClose}>✕</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
+              <TouchableOpacity style={styles.exportBtn} onPress={shareGamePerformance} accessibilityLabel="Download game performance as PDF">
+                <Ionicons name="download-outline" size={20} color={Colors.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setShowCharts(false)}>
+                <Text style={styles.modalClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Chart tab selector: Accuracy | Difficulty only */}

@@ -647,22 +647,6 @@ export async function exportAssessmentsPDF(
       <div class="metric"><div class="metric-val" style="font-size:14px;text-transform:capitalize">${latestDx}</div><div class="metric-lbl">Latest Diagnosis</div></div>
     </div>
 
-    ${scores.length >= 2 ? `
-    <div class="card">
-      <div class="card-title">📈 Score Trend</div>
-      <div class="card-sub">Correct plates % across last ${scores.length} assessments</div>
-      ${lineChartSVG(scores, C.info)}
-    </div>
-    ` : ''}
-
-    ${cvdBarRows.length > 0 ? `
-    <div class="card">
-      <div class="card-title">🔬 CVD Diagnosis Distribution</div>
-      <div class="card-sub">How often each type appeared across all your assessments</div>
-      ${horizontalBarSVG(cvdBarRows, 100)}
-    </div>
-    ` : ''}
-
     <div class="card">
       <div class="card-title">📋 All Assessments</div>
       <div class="card-sub">${assessments.length} assessments · latest first</div>
@@ -686,6 +670,86 @@ export async function exportAssessmentsPDF(
   await Sharing.shareAsync(uri, {
     mimeType: 'application/pdf',
     dialogTitle: 'ColorAid Assessment History',
+    UTI: 'com.adobe.pdf',
+  });
+}
+
+// ─── Game Performance Analytics PDF ──────────────────────────────────────────
+
+export async function exportGamePerformancePDF(
+  sessions: Array<{ completedAt: string; accuracyPct: number; gameType: string; difficultyLevel: number; score?: number }>,
+): Promise<void> {
+  const gameNames = ['color_match','hue_hunt','shade_spectrum','color_sort'];
+  
+  // Accuracy Trend
+  const recentAccuracy = sessions.slice(-15).map(s => Math.round(s.accuracyPct));
+  
+  // Avg Accuracy by Game
+  const gameSummaryRows = gameNames.map(g => {
+    const gs = sessions.filter(s => s.gameType === g);
+    const avg = gs.length ? Math.round(gs.reduce((a, s) => a + s.accuracyPct, 0) / gs.length) : 0;
+    return { label: `${GAME_EMOJIS[g] ?? ''} ${GAME_LABELS[g] ?? g}`, value: avg, color: GAME_COLORS[g] ?? C.primary, subtitle: `${gs.length} sessions` };
+  }).filter(r => r.value > 0);
+
+  // Difficulty Progression
+  const recentDiff = sessions.slice(-15).map(s => s.difficultyLevel);
+
+  // Best Difficulty per game
+  const bestDiffRows = gameNames.map(g => {
+    const gs = sessions.filter(s => s.gameType === g);
+    const best = gs.length ? Math.max(...gs.map(s => s.difficultyLevel)) : 0;
+    return { label: `${GAME_EMOJIS[g] ?? ''} ${GAME_LABELS[g] ?? g}`, value: best, color: GAME_COLORS[g] ?? C.primary, subtitle: `Best Level` };
+  }).filter(r => r.value > 0);
+
+  const body = `
+    <div class="header">
+      <div class="header-top">
+        <div class="brand">ColorAid <span>Color Vision Training</span></div>
+        <div class="report-meta">
+          <div style="font-size:14px;font-weight:700">Game Performance Analytics</div>
+          <div>${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</div>
+        </div>
+      </div>
+    </div>
+
+    ${recentAccuracy.length >= 2 ? `
+    <div class="card">
+      <div class="card-title">📈 Accuracy Over Time</div>
+      <div class="card-sub">Last ${recentAccuracy.length} training sessions</div>
+      ${lineChartSVG(recentAccuracy, C.primary)}
+    </div>
+    ` : ''}
+
+    ${gameSummaryRows.length > 0 ? `
+    <div class="card">
+      <div class="card-title">🎮 Avg Accuracy by Game</div>
+      <div class="card-sub">All-time average per game type</div>
+      ${horizontalBarSVG(gameSummaryRows, 100)}
+    </div>
+    ` : ''}
+
+    ${recentDiff.length >= 2 ? `
+    <div class="card">
+      <div class="card-title">🎯 Difficulty Progression</div>
+      <div class="card-sub">How your difficulty level has climbed over time (Last ${recentDiff.length} sessions)</div>
+      ${lineChartSVG(recentDiff, C.accent, 500, 140, 10)}
+    </div>
+    ` : ''}
+
+    ${bestDiffRows.length > 0 ? `
+    <div class="card">
+      <div class="card-title">🏆 Best Difficulty Reached</div>
+      <div class="card-sub">Highest difficulty played per game (Max 10)</div>
+      ${horizontalBarSVG(bestDiffRows, 10)}
+    </div>
+    ` : ''}
+  `;
+
+  const html = htmlShell('ColorAid Game Performance', body);
+  const { uri } = await Print.printToFileAsync({ html, base64: false });
+  await Sharing.shareAsync(uri, {
+    mimeType: 'application/pdf',
+    dialogTitle: 'ColorAid Game Performance',
     UTI: 'com.adobe.pdf',
   });
 }
