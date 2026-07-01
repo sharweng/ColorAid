@@ -89,9 +89,11 @@ function parseAvatar(avatarConfig: string | undefined | null): { type: 'emoji' |
     const p = JSON.parse(avatarConfig);
     if (p.type === 'photo' && p.uri) return { type: 'photo', uri: p.uri };
     if (p.emoji) return { type: 'emoji', emoji: p.emoji };
-  } catch { /* not JSON */ }
-  // plain emoji string
-  if (avatarConfig.trim()) return { type: 'emoji', emoji: avatarConfig.trim() };
+    // Parsed valid JSON but no recognised fields (e.g. '{}') — show initial
+    return { type: 'initial' };
+  } catch { /* not JSON — treat as plain emoji string */ }
+  const trimmed = avatarConfig.trim();
+  if (trimmed) return { type: 'emoji', emoji: trimmed };
   return { type: 'initial' };
 }
 
@@ -232,7 +234,7 @@ function htmlLine(values: number[], labels: string[], color: string, w = 480, h 
     const x=(PL+(i/(values.length-1))*iW).toFixed(1);
     return `<text x="${x}" y="${PT+iH+18}" text-anchor="middle" font-size="9" fill="#9CA3AF">${labels[i]||''}</text>`;
   }).join('');
-  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="display:block;margin:0 auto">
     ${grids}
     <polygon points="${areaPts}" fill="${color}22"/>
     <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round"/>
@@ -256,7 +258,7 @@ function htmlPie(slices: {label:string;value:number;color:string}[], size=180): 
     ang=end;
     return `<path d="${d}" fill="${s.color}"/>`;
   }).join('');
-  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${paths}
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="display:block;margin:0 auto">${paths}
     <text x="${cx}" y="${cy-4}" text-anchor="middle" font-size="18" font-weight="bold" fill="#1A1B2E">${total}</text>
     <text x="${cx}" y="${cy+14}" text-anchor="middle" font-size="9" fill="#9CA3AF">total</text>
   </svg>`;
@@ -280,7 +282,7 @@ function htmlBar(values: number[], labels: string[], colors: string[], w=420, h=
       ${v>0?`<text x="${(Number(x)+bW/2).toFixed(1)}" y="${(Number(y)-5).toFixed(1)}" text-anchor="middle" font-size="10" fill="${col}" font-weight="bold">${v}</text>`:''}
       <text x="${(Number(x)+bW/2).toFixed(1)}" y="${(PT+iH+22).toFixed(1)}" text-anchor="middle" font-size="9" fill="#6B7280">${labels[i]}</text>`;
   }).join('');
-  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${grids}${bars}
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="display:block;margin:0 auto">${grids}${bars}
     <line x1="${PL}" y1="${PT+iH}" x2="${PL+iW}" y2="${PT+iH}" stroke="#E2E4F0" stroke-width="1"/>
   </svg>`;
 }
@@ -371,8 +373,7 @@ async function generateDashboardPdf(stats: AdminStats): Promise<void> {
   await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'Save Dashboard Report' });
 }
 
-async function generateUsersListPdf(fetchAll: () => Promise<AdminUser[]>): Promise<void> {
-  const users = await fetchAll();
+async function generateUsersListPdf(users: AdminUser[]): Promise<void> {
   const now = new Date().toLocaleString();
   const rows = users.map((u, i) => `
     <tr style="${i%2===1?'background:#FAFAFE':''}">
@@ -398,7 +399,8 @@ async function generateUsersListPdf(fetchAll: () => Promise<AdminUser[]>): Promi
   h1{color:#6C63FF;font-size:22px;margin:0 0 4px}
   .sub{color:#9CA3AF;font-size:12px;margin-bottom:24px}
   .summary{display:flex;gap:14px;margin-bottom:20px}
-  .s{background:#fff;border-radius:8px;padding:12px 16px;border-top:3px solid #6C63FF;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+  .s{flex:1;background:#fff;border-radius:8px;padding:12px 16px;border-top:3px solid #6C63FF;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+
   .sv{font-size:22px;font-weight:800;color:#6C63FF}
   .sl{font-size:10px;color:#6B7280;text-transform:uppercase;letter-spacing:.4px}
   table{width:100%;border-collapse:collapse;font-size:12px}
@@ -687,15 +689,18 @@ function UsersTab({ onExportReady }: { onExportReady: (fn: (() => Promise<void>)
   useFocusEffect(useCallback(() => { load(1); }, [load]));
   useEffect(() => { load(1); }, [debouncedSearch]);
 
-  // Export: fetch all users (up to 500) then generate PDF
+  // Export: use already-loaded users; fetch up to 100 if there are more pages
   useEffect(() => {
     onExportReady(async () => {
-      await generateUsersListPdf(async () => {
-        const data = await adminApi.listUsers(1, 500, debouncedSearch);
-        return data.users;
-      });
+      let exportUsers = users;
+      if (totalPages > 1) {
+        // Fetch a full batch (backend caps at 100)
+        const data = await adminApi.listUsers(1, 100, debouncedSearch);
+        exportUsers = data.users;
+      }
+      await generateUsersListPdf(exportUsers);
     });
-  }, [debouncedSearch, onExportReady]);
+  }, [users, totalPages, debouncedSearch, onExportReady]);
 
   async function handleSetStatus(user: AdminUser, isActive: boolean) {
     setActionLoading(true);
