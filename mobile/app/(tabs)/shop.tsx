@@ -207,7 +207,8 @@ const styles = StyleSheet.create({
   disabledBtn: { backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border },
   disabledBtnText: { color: Colors.textMuted },
 
-  emptyState: { alignItems: 'center', marginTop: Spacing.xxl },
+  emptyState: { alignItems: 'center', marginTop: Spacing['2xl'] },
+
   emptyEmoji: { fontSize: 48, marginBottom: Spacing.md },
   emptyTitle: { fontSize: Typography.size.lg, fontWeight: '700', color: Colors.textPrimary, marginBottom: Spacing.xs },
   emptyDesc: { color: Colors.textSecondary },

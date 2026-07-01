@@ -1,7 +1,10 @@
 import { Tabs } from 'expo-router';
 import { Colors } from '../../src/constants/theme';
+import { useAuthStore, selectIsAdmin } from '../../src/store/authStore';
 
 export default function TabLayout() {
+  const isAdmin = useAuthStore(selectIsAdmin);
+
   return (
     <Tabs
       screenOptions={{
@@ -49,6 +52,18 @@ export default function TabLayout() {
           ),
         }}
       />
+      {/* Admin tab — only visible to administrators; shown before Profile */}
+      <Tabs.Screen
+        name="admin"
+        options={{
+          title: 'Admin Panel',
+          tabBarLabel: 'Admin',
+          href: isAdmin ? undefined : null,
+          tabBarIcon: ({ color }) => (
+            <TabIcon emoji="⚙" color={color} />
+          ),
+        }}
+      />
       <Tabs.Screen
         name="profile"
         options={{
@@ -62,6 +77,7 @@ export default function TabLayout() {
     </Tabs>
   );
 }
+
 
 function TabIcon({ emoji, color }: { emoji: string; color: string }) {
   const { Text } = require('react-native');

@@ -17,6 +17,10 @@ interface AuthState {
   clearError: () => void;
 }
 
+/** Selector — use this for gate checks in components */
+export const selectIsAdmin = (state: AuthState) => state.user?.role === 'admin';
+
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({

@@ -100,6 +100,8 @@ export interface UserProfile {
   id: string;
   email: string;
   username: string;
+  role: string;
+  isActive: boolean;
   coins: number;
   totalXp: number;
   level: number;
@@ -377,3 +379,74 @@ export const colorApi = {
       body: JSON.stringify({ image: imageBase64, x, y }),
     }),
 };
+
+// ─── Admin API ────────────────────────────────────────────────────────────────
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  username: string;
+  role: string;
+  isActive: boolean;
+  level: number;
+  totalXp: number;
+  coins: number;
+  streakDays: number;
+  lastActiveAt: string | null;
+  createdAt: string;
+  _count?: { assessments: number; trainingSessions: number };
+}
+
+export interface AdminStats {
+  users: { total: number; active: number; deactivated: number; admins: number };
+  sessions: { total: number; completed: number };
+  assessments: { total: number; completed: number };
+  coinsInCirculation: number;
+}
+
+export interface AdminUserListResponse {
+  users: AdminUser[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface AdminAnalytics {
+  labels: string[];
+  usersPerDay: number[];
+  sessionsPerDay: number[];
+  assessmentsPerDay: number[];
+  avgAccuracyPerDay: number[];
+  cvdDistribution: { type: string; count: number }[];
+  gameBreakdown: { gameType: string; count: number; avgAccuracy: number }[];
+}
+
+export const adminApi = {
+  // Stats
+  getStats: () => apiFetch<AdminStats>('/admin/stats'),
+
+  // Analytics
+  getAnalytics: () => apiFetch<AdminAnalytics>('/admin/analytics'),
+
+  // Users
+  listUsers: (page = 1, limit = 20, search = '') =>
+    apiFetch<AdminUserListResponse>(
+      `/admin/users?page=${page}&limit=${limit}${search ? `&search=${encodeURIComponent(search)}` : ''}`
+    ),
+
+  getUserDetail: (userId: string) => apiFetch<AdminUser>(`/admin/users/${userId}`),
+
+  setUserRole: (userId: string, role: 'user' | 'admin') =>
+    apiFetch<AdminUser>(`/admin/users/${userId}/role`, {
+      method: 'PATCH',
+      body: JSON.stringify({ role }),
+    }),
+
+  setUserStatus: (userId: string, isActive: boolean) =>
+    apiFetch<AdminUser>(`/admin/users/${userId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ isActive }),
+    }),
+};
+
