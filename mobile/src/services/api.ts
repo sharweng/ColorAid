@@ -393,9 +393,11 @@ export interface AdminUser {
   coins: number;
   streakDays: number;
   lastActiveAt: string | null;
+  avatarConfig: string;
   createdAt: string;
   _count?: { assessments: number; trainingSessions: number };
 }
+
 
 export interface AdminStats {
   users: { total: number; active: number; deactivated: number; admins: number };
